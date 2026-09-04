@@ -1,29 +1,29 @@
-# ⚡ Giai đoạn 3: Giả lập Quẹt Thẻ 24/7 & Hứng Luồng Real-Time (Phase 3)
+# ⚡ Phase 3: 24/7 POS Simulation & Real-Time Ingestion Pipeline
 
-**Mục tiêu:** Xây dựng luồng truyền nhận và xử lý dữ liệu giao dịch quẹt thẻ thời gian thực liên tục 24/7.
-
----
-
-## 🛠️ Chi tiết Công việc & Kiến trúc Streaming:
-
-### 1. Máy phát Luồng Quẹt Thẻ POS (`src/streaming_jobs/kafka_producer.py`)
-- **Vai trò:** Giả lập hàng nghìn máy quẹt thẻ tín dụng tại các cửa hàng ngoài đời thực.
-- **Cách hoạt động:**
-  - Đọc tập giao dịch từ file CSV thô `data/bronze/credit_card_transactions-ibm_v2.csv`.
-  - Gắn mốc thời gian thực tại của hệ thống (`datetime.now()`) vào từng giao dịch.
-  - Đóng gói dữ liệu dạng JSON và liên tục đẩy vào Kafka Topic `transactions_topic`.
-  - Đặt trong vòng lặp vô hạn `while True` với cơ chế **Tự động kết nối lại Kafka (10 lần thử)** giúp hệ thống chạy 24/7 không bao giờ dừng.
-
-### 2. Bộ não Hứng Luồng Spark Streaming (`src/streaming_jobs/spark_consumer.py`)
-- **Vai trò:** Lắng nghe, làm sạch và lưu trữ dữ liệu thời gian thực.
-- **Cách hoạt động:**
-  - Đọc luồng dữ liệu từ Kafka Topic `transactions_topic` bằng **Spark Structured Streaming**.
-  - Bóc tách chuỗi JSON thành Schema định dạng rõ ràng (User ID, Card Index, Amount, Merchant, Is Fraud).
-  - Làm sạch cột số tiền `amount` (xóa dấu `$`), chuẩn hóa cờ gian lận `is_fraud`.
-  - Thực hiện ghi dữ liệu dạng **Append Mode (Ghi nối tiếp)** theo từng **Micro-batch 5 giây** vào tầng Silver: `data/silver/fact_transactions/`.
-  - Cấu hình **Checkpointing (`data/silver/checkpoints/`)** để lưu vết Offset Kafka, đảm bảo không mất dữ liệu và không ghi trùng (Exactly-Once Semantics).
+**Objective:** Build a 24/7 continuous real-time transaction ingestion and processing pipeline for credit card swipe events.
 
 ---
 
-## 💡 Kết quả đạt được:
-Luồng dữ liệu giao dịch quẹt thẻ chảy liên tục 24/7, nạp hàng chục nghìn giao dịch thời gian thực vào Data Lake một cách mượt mà và tin cậy.
+## 🛠️ Implementation Details & Streaming Architecture:
+
+### 1. POS Transaction Streaming Generator (`src/streaming_jobs/kafka_producer.py`)
+- **Role:** Simulates thousands of real-world point-of-sale (POS) credit card terminal transactions.
+- **Workflow:**
+  - Reads raw transaction records from Bronze CSV file `data/bronze/credit_card_transactions-ibm_v2.csv`.
+  - Attaches real-time system timestamps (`datetime.now()`) to each transaction payload.
+  - Serializes transaction data into JSON format and continuously streams messages to Kafka Topic `transactions_topic`.
+  - Wrapped inside an infinite `while True` loop with **Automatic Kafka Reconnection (10 retry attempts)**, ensuring robust 24/7 operation.
+
+### 2. Spark Structured Streaming Engine (`src/streaming_jobs/spark_consumer.py`)
+- **Role:** Listens, cleanses, and persists streaming transaction data in real time.
+- **Workflow:**
+  - Subscribes to Kafka Topic `transactions_topic` using **Spark Structured Streaming**.
+  - Parses raw JSON strings into an explicit schema (User ID, Card Index, Amount, Merchant, Is Fraud).
+  - Cleans monetary values (`amount` column stripping `$`) and standardizes fraud indicator flags (`is_fraud`).
+  - Incremental write operations in **Append Mode** every **5-second Micro-batch** into Silver Data Lake: `data/silver/fact_transactions/`.
+  - Configured **Offset Checkpointing (`data/silver/checkpoints/`)** to track Kafka offsets, ensuring **Exactly-Once Semantics** without data loss or duplication.
+
+---
+
+## 💡 Achievements:
+Real-time transaction stream runs continuously 24/7, ingesting tens of thousands of real-time transactions smoothly and reliably into the Silver Data Lake.

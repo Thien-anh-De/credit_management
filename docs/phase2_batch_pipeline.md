@@ -1,32 +1,32 @@
-# 📦 Giai đoạn 2: Xử lý Dữ liệu Lô (Batch Pipeline - Phase 2)
+# 📦 Phase 2: Batch Data Processing Pipeline
 
-**Mục tiêu:** Nạp, làm sạch và chuẩn hóa các bảng dữ liệu tĩnh (Khách hàng & Thẻ tín dụng) từ tầng Bronze CSV sang tầng Silver Parquet.
-
----
-
-## 🛠️ Chi tiết Công việc & Logic Code:
-
-### 1. Xử lý Bảng Khách hàng (`src/batch_jobs/process_users.py`)
-- **Đầu vào:** `data/bronze/sd254_users.csv` (2,000 dòng).
-- **Các bước làm sạch:**
-  1. Loại bỏ ký tự tiền tệ rác (dấu `$`) ở các cột thu nhập (`per_capita_income`, `yearly_income`, `total_debt`).
-  2. Xử lý giá trị trống (Null/Missing values) bằng giá trị mặc định chuẩn.
-  3. Ép kiểu dữ liệu chuẩn (`IntegerType`, `DoubleType`).
-  4. Bổ sung cơ chế dọn dẹp thư mục tạm `shutil.rmtree` để tránh lỗi khóa file lock trên Windows.
-- **Đầu ra:** Ghi đè file Parquet nén Snappy vào `data/silver/dim_users/`.
-
-### 2. Xử lý Bảng Thẻ tín dụng (`src/batch_jobs/process_cards.py`)
-- **Đầu vào:** `data/bronze/sd254_cards.csv` (6,146 dòng).
-- **Các bước làm sạch:**
-  1. Làm sạch ký tự `$` trong cột hạn mức tín dụng (`credit_limit`).
-  2. Đổi giá trị `YES/NO` ở cột `card_on_dark_web` thành Boolean (`True/False`).
-  3. Ép kiểu chuẩn cho các cột hạn mức, ngày mở thẻ, năm đổi PIN.
-  4. Tự động làm sạch thư mục cũ trước khi ghi.
-- **Đầu ra:** Ghi đè file Parquet nén Snappy vào `data/silver/dim_cards/`.
+**Objective:** Ingest, clean, and standardize static dimension tables (Users & Credit Cards) from Bronze CSV raw format into Silver Parquet format.
 
 ---
 
-## 💡 Điểm cải tiến kỹ thuật quan trọng:
-Để tránh tình trạng Batch Job bị nghẽn (`State: WAITING`) do luồng Streaming 24/7 chiếm dụng hết tài nguyên của Spark Master Cluster, 2 job Batch được cấu hình chạy ở chế độ **`local[*]`**. 
+## 🛠️ Implementation Details & Code Logic:
 
-Nhờ đó, 2 job Batch nạp xong 2,000 người dùng và 6,146 thẻ tín dụng chỉ trong **3 giây** rồi tự động giải phóng tài nguyên.
+### 1. User Profiles Processing (`src/batch_jobs/process_users.py`)
+- **Input:** `data/bronze/sd254_users.csv` (2,000 records).
+- **Data Cleansing Steps:**
+  1. Strip currency symbols (`$`) from income columns (`per_capita_income`, `yearly_income`, `total_debt`).
+  2. Handle missing/null values with standard default values.
+  3. Enforce strict schema data types (`IntegerType`, `DoubleType`).
+  4. Implement cleanup helper logic using `shutil.rmtree` to prevent file locking issues on Windows OS.
+- **Output:** Overwrite Snappy-compressed Parquet files into `data/silver/dim_users/`.
+
+### 2. Credit Cards Processing (`src/batch_jobs/process_cards.py`)
+- **Input:** `data/bronze/sd254_cards.csv` (6,146 records).
+- **Data Cleansing Steps:**
+  1. Remove `$` symbols from credit limit columns (`credit_limit`).
+  2. Convert `YES/NO` string flags in `card_on_dark_web` to Boolean values (`True/False`).
+  3. Cast schema data types for limits, card open dates, and PIN change years.
+  4. Automatically clear target output directory prior to writing.
+- **Output:** Overwrite Snappy-compressed Parquet files into `data/silver/dim_cards/`.
+
+---
+
+## 💡 Key Architectural Optimization:
+To prevent Batch Jobs from queuing in `WAITING` state due to 24/7 streaming jobs consuming all available Spark Master Cluster resource slots, both Batch jobs are configured to run in **`local[*]`** mode.
+
+As a result, both Batch jobs process and ingest 2,000 user profiles and 6,146 credit card records in under **3 seconds** before releasing compute resources.
