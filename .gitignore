@@ -1,0 +1,13 @@
+# Dataset
+data/bronze/
+data/silver/
+
+# Python / Virtual Environment
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/

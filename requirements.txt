@@ -1,0 +1,9 @@
+pyspark==3.5.1
+kafka-python-ng==2.2.3
+streamlit>=1.30.0
+plotly>=5.18.0
+pyarrow>=14.0.0
+pandas>=2.0.0
+jupyterlab
+matplotlib
+seaborn
