@@ -1,6 +1,7 @@
-# Dataset
-data/bronze/
-data/silver/
+# Dataset (Ignore large data files but keep folder structure via .gitkeep)
+*.csv
+*.parquet
+
 
 # Python / Virtual Environment
 __pycache__/
