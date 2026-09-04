@@ -7,11 +7,11 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg)](https://streamlit.io/)
 [![Architecture](https://img.shields.io/badge/Architecture-Medallion%20(Bronze%20%E2%9E%9E%20Silver)-00CC96.svg)]()
 
-Hệ thống Data Engineering thời gian thực phục vụ giả lập, xử lý và giám sát luồng giao dịch thẻ tín dụng ngân hàng theo chu kỳ 24/7. Dự án ứng dụng kiến trúc **Medallion (Bronze ➔ Silver Data Lake)** kết hợp bộ đôi **Apache Kafka** và **Spark Structured Streaming**, cung cấp bảng điều khiển Web Operations Center giám sát gian lận và lưu lượng thời gian thực.
+An end-to-end real-time Data Engineering system designed for simulating, processing, and monitoring banking credit card transactions on a 24/7 basis. Built on the **Medallion Architecture (Bronze ➔ Silver Data Lake)**, this pipeline combines **Apache Kafka** and **Spark Structured Streaming** to feed a live Web Operations Center for real-time throughput and fraud detection monitoring.
 
 ---
 
-## 🏗️ Kiến trúc Hệ thống (System Architecture)
+## 🏗️ System Architecture
 
 ```text
                                 [ IBM Credit Card Dataset (CSV) ]
@@ -43,23 +43,23 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ---
 
-## 🔥 Tính năng Nổi bật (Key Features)
+## 🔥 Key Features
 
-- **🔄 Giả lập POS Quẹt thẻ 24/7 (Continuous Streaming Simulator):** `kafka-producer` container đóng vai trò máy POS quẹt thẻ tại ngân hàng, liên tục bắn giao dịch kèm mốc thời gian thực hiện vào Kafka Topic với cơ chế tự động reconnect.
-- **⚡ Xử lý Phân tán Thời gian thực (Spark Structured Streaming):** `spark-streaming-consumer` container lắng nghe luồng Kafka, bóc tách JSON, làm sạch dữ liệu và ghi nối tiếp vào tầng Silver dưới dạng **Snappy Compressed Parquet** theo từng micro-batch 5 giây.
-- **🛡️ Đảm bảo Không mất Dữ liệu (Fault-Tolerant Checkpointing):** Sử dụng Spark Checkpoint offset quản lý chính xác vị trí tin nhắn Kafka, đảm bảo chuẩn **Exactly-Once Semantics**.
-- **🖥️ Web Operations Center 24/7 (Streamlit Dashboard):** Giao diện Modern Dark Mode chuẩn Glassmorphic hiển thị:
-  - 5 Thẻ KPI Thống kê (Khách hàng, Thẻ tín dụng, Tổng số giao dịch, Doanh số $, Cảnh báo gian lận).
-  - Thanh trạng thái Spark Engine & Mốc thời gian giao dịch mới nhất.
-  - Biểu đồ đường Tốc độ nạp Real-Time & Biểu đồ cơ cấu quẹt thẻ (Chip vs Swipe vs Online).
-  - Bảng Live Feed tự động tô đỏ dòng giao dịch nguy cơ gian lận.
-- **📦 Tự động hóa Containerization:** Đóng gói toàn bộ hạ tầng Kafka, Zookeeper, Spark Cluster, Batch Jobs, Streaming Consumer, Producer và Web Dashboard qua `docker-compose.yml`.
+- **🔄 24/7 POS Transaction Simulator:** The `kafka-producer` container emulates point-of-sale (POS) terminal activity, continuously streaming live transactions with real-time timestamps into a Kafka topic with automatic 10-retry reconnection logic.
+- **⚡ Real-Time Distributed Processing (Spark Structured Streaming):** The `spark-streaming-consumer` container listens to the Kafka topic, parses JSON payloads, cleans incoming data, and incrementally appends records to the Silver layer as **Snappy Compressed Parquet** files every 5-second micro-batch.
+- **🛡️ Fault-Tolerant Checkpointing:** Leverages Spark offset checkpointing to guarantee **Exactly-Once Semantics** and eliminate data loss during pipeline restarts.
+- **🖥️ 24/7 Web Operations Center (Streamlit Dashboard):** Features a sleek Glassmorphic Dark Mode interface displaying:
+  - 5 High-level KPI cards (Total Users, Credit Cards, Total Transactions, Total Volume $, Fraud Alerts).
+  - Spark Engine status bar & latest transaction timestamps.
+  - Real-time ingestion speed line charts & payment entry method distribution (Chip vs. Swipe vs. Online).
+  - Live Feed table with automatic red highlighting for high-risk fraud transactions.
+- **📦 End-to-End Containerization:** Fully orchestrated via `docker-compose.yml`, spinning up Kafka, Zookeeper, Spark Cluster, Batch Jobs, Streaming Consumer, Producer, and the Web Dashboard seamlessly.
 
 ---
 
-## 🛠️ Công nghệ Sử dụng (Tech Stack)
+## 🛠️ Tech Stack
 
-| Hạng mục | Công nghệ / Thư viện |
+| Category | Technology / Library |
 | :--- | :--- |
 | **Messaging Broker** | Apache Kafka 3.x, Apache Zookeeper |
 | **Processing Engine** | Apache Spark 3.5.1 (PySpark) |
@@ -70,56 +70,56 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ---
 
-## 📂 Cấu trúc Thư mục Repository
+## 📂 Repository Structure
 
 ```text
 credit_management/
 ├── data/
-│   ├── bronze/                  # Dữ liệu thô ban đầu (Raw CSV - Ignored in Git)
-│   └── silver/                  # Tầng Silver Data Lake (Format Parquet)
-│       ├── dim_users/           # Bảng chiều Khách hàng (2,000 records)
-│       ├── dim_cards/           # Bảng chiều Thẻ tín dụng (6,146 records)
-│       ├── fact_transactions/   # Bảng sự kiện giao dịch Streaming
+│   ├── bronze/                  # Raw input CSV datasets (Ignored in Git)
+│   └── silver/                  # Silver Data Lake layer (Parquet format)
+│       ├── dim_users/           # User dimension table (2,000 records)
+│       ├── dim_cards/           # Credit Card dimension table (6,146 records)
+│       ├── fact_transactions/   # Streaming fact transaction table
 │       └── checkpoints/         # Spark Offset Checkpoints
-├── docs/                        # Tài liệu hướng dẫn kỹ thuật chi tiết
+├── docs/                        # Detailed technical documentation
 │   ├── architecture_and_repo.md
 │   ├── phase1_infrastructure.md
 │   ├── phase2_batch_pipeline.md
 │   ├── phase3_streaming_pipeline.md
 │   └── phase4_analytics.md
 ├── src/
-│   ├── batch_jobs/              # Code PySpark xử lý Batch
+│   ├── batch_jobs/              # PySpark batch transformation scripts
 │   │   ├── process_users.py
 │   │   └── process_cards.py
-│   ├── streaming_jobs/          # Code Kafka & Spark Streaming
+│   ├── streaming_jobs/          # Kafka producer & Spark streaming scripts
 │   │   ├── kafka_producer.py
 │   │   └── spark_consumer.py
-│   └── web_dashboard.py         # App Web Dashboard Giám sát (Streamlit)
-├── notebooks/                   # Jupyter Notebook phân tích EDA
+│   └── web_dashboard.py         # Streamlit Operations Center Web App
+├── notebooks/                   # Jupyter Notebooks for EDA
 │   └── data_analysis.ipynb
-├── docker-compose.yml           # Khởi tạo cụm Docker Services
-├── requirements.txt             # Thư viện Python phụ thuộc
-└── README.md                    # Tài liệu hướng dẫn dự án
+├── docker-compose.yml           # Docker services orchestration
+├── requirements.txt             # Python dependencies
+└── README.md                    # Project documentation
 ```
 
 ---
 
-## 🚀 Hướng dẫn Khởi chạy Dự án (Quick Start)
+## 🚀 Quick Start Guide
 
-### 1. Yêu cầu Tiền đề (Prerequisites)
-- Đã cài đặt **Docker** & **Docker Desktop** (đã bật Docker Compose).
+### 1. Prerequisites
+- **Docker** & **Docker Desktop** installed (with Docker Compose support).
 
-### 2. Tải Mã nguồn & Bộ dữ liệu (Dataset)
+### 2. Clone Repository & Download Dataset
 ```bash
 git clone https://github.com/Thien-anh-De/credit_management.git
 cd credit_management
 ```
 
-📥 **Tải Dataset thô (Bronze Layer)**:
-Do dung lượng file lớn, dữ liệu thô không lưu trực tiếp trên Git. Bạn tải bộ dữ liệu tại:
+📥 **Download Raw Dataset (Bronze Layer)**:
+Due to file size constraints, raw datasets are excluded from Git repository. Download the raw CSV files from:
 👉 **[Google Drive Dataset Folder](https://drive.google.com/drive/folders/1vymvt8bZYZYNWhMuC_XnDR8N7PXDVoMc)**
 
-Sau khi tải về, giải nén và đặt các file CSV vào thư mục `data/bronze/`:
+Extract and place the downloaded CSV files inside `data/bronze/`:
 - `sd254_users.csv`
 - `sd254_cards.csv`
 - `credit_card_transactions-ibm_v2.csv`
@@ -127,23 +127,23 @@ Sau khi tải về, giải nén và đặt các file CSV vào thư mục `data/b
 
 ---
 
-### 3. Khởi chạy Toàn bộ Hệ thống (Containerized Pipeline)
+### 3. Launch the Full Pipeline (Docker Compose)
 
-Chỉ với 1 lệnh duy nhất, Docker Compose sẽ tự động khởi tạo và chạy toàn bộ dịch vụ (Kafka, Zookeeper, Spark Cluster, các Batch Jobs chuẩn hóa dữ liệu, Streaming Producer/Consumer và Web Dashboard):
+Execute a single command to launch all infrastructure services and automated pipeline jobs:
 
 ```bash
 docker compose up -d
 ```
 
-> 💡 **Cơ chế hoạt động tự động trong Container:**
-> - `spark-batch-users` & `spark-batch-cards`: Tự động xử lý dữ liệu thô Bronze và lưu vào Silver Data Lake (`dim_users`, `dim_cards`).
-> - `spark-streaming-consumer`: Tự động nhận luồng từ Kafka và ghi liên tục vào `fact_transactions`.
-> - `kafka-producer`: Tự động giả lập máy POS bắn dữ liệu thời gian thực.
-> - `web-dashboard`: Tự động khởi chạy ứng dụng Streamlit Dashboard.
+> 💡 **Automated Execution within Containers:**
+> - `spark-batch-users` & `spark-batch-cards`: Automatically process raw Bronze data into Silver Data Lake Parquet format (`dim_users`, `dim_cards`).
+> - `spark-streaming-consumer`: Automatically subscribes to Kafka topic and appends streaming micro-batches into `fact_transactions`.
+> - `kafka-producer`: Automatically simulates live POS terminal transaction generation.
+> - `web-dashboard`: Automatically boots up the Streamlit Web Operations Center.
 
 ---
 
-### 4. Truy cập các Giao diện Quản trị & Giám sát
+### 4. Access Admin & Monitoring Interfaces
 
 - 🌐 **Web Operations Dashboard:** [`http://localhost:8501`](http://localhost:8501)
 - ⚡ **Spark Master UI:** [`http://localhost:8080`](http://localhost:8080)
@@ -151,9 +151,9 @@ docker compose up -d
 
 ---
 
-## 📝 Tài liệu Tham khảo Kỹ thuật (Documentation)
-Chi tiết từng giai đoạn phát triển dự án được lưu tại thư mục `docs/`:
-- 📄 [Phase 1: Khởi tạo Hạ tầng Docker](docs/phase1_infrastructure.md)
-- 📄 [Phase 2: Xử lý Dữ liệu Lô Batch Pipeline](docs/phase2_batch_pipeline.md)
-- 📄 [Phase 3: Xử lý Dữ liệu Luồng Streaming Pipeline](docs/phase3_streaming_pipeline.md)
-- 📄 [Phase 4: Giám sát & Trực quan hóa Real-Time](docs/phase4_analytics.md)
+## 📝 Technical Documentation
+Detailed phase-by-phase implementation guides are available in the `docs/` folder:
+- 📄 [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
+- 📄 [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
+- 📄 [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
+- 📄 [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
