@@ -45,7 +45,7 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ## 🔥 Tính năng Nổi bật (Key Features)
 
-- ** Giả lập POS Quẹt thẻ 24/7 (Continuous Streaming Simulator):** `kafka_producer.py` đóng vai trò máy POS quẹt thẻ tại ngân hàng, liên tục bắn giao dịch kèm mốc thời gian thực tại vào Kafka Topic với cơ chế tự động reconnect 10 lần.
+- **🔄 Giả lập POS Quẹt thẻ 24/7 (Continuous Streaming Simulator):** `kafka_producer.py` đóng vai trò máy POS quẹt thẻ tại ngân hàng, liên tục bắn giao dịch kèm mốc thời gian thực hiện vào Kafka Topic với cơ chế tự động reconnect.
 - **⚡ Xử lý Phân tán Thời gian thực (Spark Structured Streaming):** `spark_consumer.py` lắng nghe luồng Kafka, bóc tách JSON, làm sạch dữ liệu và ghi nối tiếp vào tầng Silver dưới dạng **Snappy Compressed Parquet** theo từng micro-batch 5 giây.
 - **🛡️ Đảm bảo Không mất Dữ liệu (Fault-Tolerant Checkpointing):** Sử dụng Spark Checkpoint offset quản lý chính xác vị trí tin nhắn Kafka, đảm bảo chuẩn **Exactly-Once Semantics**.
 - **🖥️ Web Operations Center 24/7 (Streamlit Dashboard):** Giao diện Modern Dark Mode chuẩn Glassmorphic hiển thị:
@@ -73,9 +73,9 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 ## 📂 Cấu trúc Thư mục Repository
 
 ```text
-credit_managerment/
+credit_management/
 ├── data/
-│   ├── bronze/                  # Dữ liệu thô ban đầu (Raw CSV)
+│   ├── bronze/                  # Dữ liệu thô ban đầu (Raw CSV - Ignored in Git)
 │   └── silver/                  # Tầng Silver Data Lake (Format Parquet)
 │       ├── dim_users/           # Bảng chiều Khách hàng (2,000 records)
 │       ├── dim_cards/           # Bảng chiều Thẻ tín dụng (6,146 records)
@@ -107,34 +107,66 @@ credit_managerment/
 ## 🚀 Hướng dẫn Khởi chạy Dự án (Quick Start)
 
 ### 1. Yêu cầu Tiền đề (Prerequisites)
-- Đã cài đặt **Docker** & **Docker Desktop** (hoặc Docker Compose).
+- Cài đặt **Docker** & **Docker Desktop** (đã bật Docker Compose).
 - Python 3.10 trở lên.
 
-### 2. Tải Mã nguồn & Dữ liệu
+### 2. Tải Mã nguồn & Bộ dữ liệu (Dataset)
 ```bash
-git clone https://github.com/your-username/credit-card-streaming-pipeline.git
-cd credit-card-streaming-pipeline
+git clone https://github.com/Thien-anh-De/credit_management.git
+cd credit_management
 ```
-*Đảm bảo các file CSV thô nằm trong thư mục `data/bronze/`:*
+
+📥 **Tải Dataset thô (Bronze Layer)**:
+Do dung lượng file lớn, dữ liệu thô không lưu trực tiếp trên Git. Bạn tải bộ dữ liệu tại:
+👉 **[Google Drive Dataset Folder](https://drive.google.com/drive/folders/1vymvt8bZYZYNWhMuC_XnDR8N7PXDVoMc)**
+
+Sau khi tải về, giải nén và đặt các file CSV vào thư mục `data/bronze/`:
 - `sd254_users.csv`
 - `sd254_cards.csv`
 - `credit_card_transactions-ibm_v2.csv`
+- `User0_credit_card_transactions.csv`
 
-### 3. Bật Toàn bộ Hạ tầng Container
+---
+
+### 3. Bật Hạ tầng Container
+Khởi tạo các dịch vụ Kafka, Zookeeper, Spark Master, Spark Worker và Web Dashboard:
 ```bash
 docker compose up -d
 ```
 
-### 4. Truy cập các Giao diện Quản trị & Giám sát
+---
+
+### 4. Chạy Pipeline Xử lý Dữ liệu
+
+**Bước 4.1: Chạy Batch Jobs (Tạo Dim Users & Dim Cards)**
+```bash
+python src/batch_jobs/process_users.py
+python src/batch_jobs/process_cards.py
+```
+
+**Bước 4.2: Chạy Real-Time Streaming Pipeline**
+Mở 2 cửa sổ terminal riêng biệt để chạy Producer và Consumer:
+- Terminal 1 (Kafka Producer - POS Simulator):
+  ```bash
+  python src/streaming_jobs/kafka_producer.py
+  ```
+- Terminal 2 (Spark Structured Consumer):
+  ```bash
+  python src/streaming_jobs/spark_consumer.py
+  ```
+
+---
+
+### 5. Truy cập các Giao diện Quản trị & Giám sát
 - 🌐 **Web Operations Dashboard:** [`http://localhost:8501`](http://localhost:8501)
-- ⚡ **Spark Master Cluster UI:** [`http://localhost:8080`](http://localhost:8080)
+- ⚡ **Spark Master UI:** [`http://localhost:8080`](http://localhost:8080)
 - 👷 **Spark Worker UI:** [`http://localhost:8081`](http://localhost:8081)
 
 ---
 
 ## 📝 Tài liệu Tham khảo Kỹ thuật (Documentation)
 Chi tiết từng giai đoạn phát triển dự án được lưu tại thư mục `docs/`:
-- [Phase 1: Khởi tạo Hạ tầng Docker](docs/phase1_infrastructure.md)
-- [Phase 2: Xử lý Dữ liệu Lô Batch Pipeline](docs/phase2_batch_pipeline.md)
-- [Phase 3: Xử lý Dữ liệu Luồng Streaming Pipeline](docs/phase3_streaming_pipeline.md)
-- [Phase 4: Giám sát & Trực quan hóa Real-Time](docs/phase4_analytics.md)
+- 📄 [Phase 1: Khởi tạo Hạ tầng Docker](docs/phase1_infrastructure.md)
+- 📄 [Phase 2: Xử lý Dữ liệu Lô Batch Pipeline](docs/phase2_batch_pipeline.md)
+- 📄 [Phase 3: Xử lý Dữ liệu Luồng Streaming Pipeline](docs/phase3_streaming_pipeline.md)
+- 📄 [Phase 4: Giám sát & Trực quan hóa Real-Time](docs/phase4_analytics.md)
