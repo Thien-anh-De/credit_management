@@ -45,15 +45,15 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ## 🔥 Tính năng Nổi bật (Key Features)
 
-- **🔄 Giả lập POS Quẹt thẻ 24/7 (Continuous Streaming Simulator):** `kafka_producer.py` đóng vai trò máy POS quẹt thẻ tại ngân hàng, liên tục bắn giao dịch kèm mốc thời gian thực hiện vào Kafka Topic với cơ chế tự động reconnect.
-- **⚡ Xử lý Phân tán Thời gian thực (Spark Structured Streaming):** `spark_consumer.py` lắng nghe luồng Kafka, bóc tách JSON, làm sạch dữ liệu và ghi nối tiếp vào tầng Silver dưới dạng **Snappy Compressed Parquet** theo từng micro-batch 5 giây.
+- **🔄 Giả lập POS Quẹt thẻ 24/7 (Continuous Streaming Simulator):** `kafka-producer` container đóng vai trò máy POS quẹt thẻ tại ngân hàng, liên tục bắn giao dịch kèm mốc thời gian thực hiện vào Kafka Topic với cơ chế tự động reconnect.
+- **⚡ Xử lý Phân tán Thời gian thực (Spark Structured Streaming):** `spark-streaming-consumer` container lắng nghe luồng Kafka, bóc tách JSON, làm sạch dữ liệu và ghi nối tiếp vào tầng Silver dưới dạng **Snappy Compressed Parquet** theo từng micro-batch 5 giây.
 - **🛡️ Đảm bảo Không mất Dữ liệu (Fault-Tolerant Checkpointing):** Sử dụng Spark Checkpoint offset quản lý chính xác vị trí tin nhắn Kafka, đảm bảo chuẩn **Exactly-Once Semantics**.
 - **🖥️ Web Operations Center 24/7 (Streamlit Dashboard):** Giao diện Modern Dark Mode chuẩn Glassmorphic hiển thị:
   - 5 Thẻ KPI Thống kê (Khách hàng, Thẻ tín dụng, Tổng số giao dịch, Doanh số $, Cảnh báo gian lận).
   - Thanh trạng thái Spark Engine & Mốc thời gian giao dịch mới nhất.
   - Biểu đồ đường Tốc độ nạp Real-Time & Biểu đồ cơ cấu quẹt thẻ (Chip vs Swipe vs Online).
   - Bảng Live Feed tự động tô đỏ dòng giao dịch nguy cơ gian lận.
-- **📦 Tự động hóa Containerization:** Đóng gói toàn bộ hạ tầng Kafka, Zookeeper, Spark Cluster và Web App qua `docker-compose.yml`.
+- **📦 Tự động hóa Containerization:** Đóng gói toàn bộ hạ tầng Kafka, Zookeeper, Spark Cluster, Batch Jobs, Streaming Consumer, Producer và Web Dashboard qua `docker-compose.yml`.
 
 ---
 
@@ -107,8 +107,7 @@ credit_management/
 ## 🚀 Hướng dẫn Khởi chạy Dự án (Quick Start)
 
 ### 1. Yêu cầu Tiền đề (Prerequisites)
-- Cài đặt **Docker** & **Docker Desktop** (đã bật Docker Compose).
-- Python 3.10 trở lên.
+- Đã cài đặt **Docker** & **Docker Desktop** (đã bật Docker Compose).
 
 ### 2. Tải Mã nguồn & Bộ dữ liệu (Dataset)
 ```bash
@@ -128,36 +127,24 @@ Sau khi tải về, giải nén và đặt các file CSV vào thư mục `data/b
 
 ---
 
-### 3. Bật Hạ tầng Container
-Khởi tạo các dịch vụ Kafka, Zookeeper, Spark Master, Spark Worker và Web Dashboard:
+### 3. Khởi chạy Toàn bộ Hệ thống (Containerized Pipeline)
+
+Chỉ với 1 lệnh duy nhất, Docker Compose sẽ tự động khởi tạo và chạy toàn bộ dịch vụ (Kafka, Zookeeper, Spark Cluster, các Batch Jobs chuẩn hóa dữ liệu, Streaming Producer/Consumer và Web Dashboard):
+
 ```bash
 docker compose up -d
 ```
 
----
-
-### 4. Chạy Pipeline Xử lý Dữ liệu
-
-**Bước 4.1: Chạy Batch Jobs (Tạo Dim Users & Dim Cards)**
-```bash
-python src/batch_jobs/process_users.py
-python src/batch_jobs/process_cards.py
-```
-
-**Bước 4.2: Chạy Real-Time Streaming Pipeline**
-Mở 2 cửa sổ terminal riêng biệt để chạy Producer và Consumer:
-- Terminal 1 (Kafka Producer - POS Simulator):
-  ```bash
-  python src/streaming_jobs/kafka_producer.py
-  ```
-- Terminal 2 (Spark Structured Consumer):
-  ```bash
-  python src/streaming_jobs/spark_consumer.py
-  ```
+> 💡 **Cơ chế hoạt động tự động trong Container:**
+> - `spark-batch-users` & `spark-batch-cards`: Tự động xử lý dữ liệu thô Bronze và lưu vào Silver Data Lake (`dim_users`, `dim_cards`).
+> - `spark-streaming-consumer`: Tự động nhận luồng từ Kafka và ghi liên tục vào `fact_transactions`.
+> - `kafka-producer`: Tự động giả lập máy POS bắn dữ liệu thời gian thực.
+> - `web-dashboard`: Tự động khởi chạy ứng dụng Streamlit Dashboard.
 
 ---
 
-### 5. Truy cập các Giao diện Quản trị & Giám sát
+### 4. Truy cập các Giao diện Quản trị & Giám sát
+
 - 🌐 **Web Operations Dashboard:** [`http://localhost:8501`](http://localhost:8501)
 - ⚡ **Spark Master UI:** [`http://localhost:8080`](http://localhost:8080)
 - 👷 **Spark Worker UI:** [`http://localhost:8081`](http://localhost:8081)
