@@ -1,4 +1,4 @@
-# 💳 Real-Time Credit Card Streaming & Fraud Monitoring Pipeline
+# Real-Time Credit Card Streaming & Fraud Monitoring Pipeline
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Apache Spark](https://img.shields.io/badge/Apache%20Spark-3.5.1-E25A1C.svg)](https://spark.apache.org/)
@@ -11,7 +11,7 @@ An end-to-end real-time Data Engineering system designed for simulating, process
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```text
                                 [ IBM Credit Card Dataset (CSV) ]
@@ -43,21 +43,21 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ---
 
-## 🔥 Key Features
+## Key Features
 
-- **🔄 24/7 POS Transaction Simulator:** The `kafka-producer` container emulates point-of-sale (POS) terminal activity, continuously streaming live transactions with real-time timestamps into a Kafka topic with automatic 10-retry reconnection logic.
-- **⚡ Real-Time Distributed Processing (Spark Structured Streaming):** The `spark-streaming-consumer` container listens to the Kafka topic, parses JSON payloads, cleans incoming data, and incrementally appends records to the Silver layer as **Snappy Compressed Parquet** files every 5-second micro-batch.
-- **🛡️ Fault-Tolerant Checkpointing:** Leverages Spark offset checkpointing to guarantee **Exactly-Once Semantics** and eliminate data loss during pipeline restarts.
-- **🖥️ 24/7 Web Operations Center (Streamlit Dashboard):** Features a sleek Glassmorphic Dark Mode interface displaying:
+- **24/7 POS Transaction Simulator:** The `kafka-producer` container emulates point-of-sale (POS) terminal activity, continuously streaming live transactions with real-time timestamps into a Kafka topic with automatic 10-retry reconnection logic.
+- **Real-Time Distributed Processing (Spark Structured Streaming):** The `spark-streaming-consumer` container listens to the Kafka topic, parses JSON payloads, cleans incoming data, and incrementally appends records to the Silver layer as **Snappy Compressed Parquet** files every 5-second micro-batch.
+- **Fault-Tolerant Checkpointing:** Leverages Spark offset checkpointing to guarantee **Exactly-Once Semantics** and eliminate data loss during pipeline restarts.
+- **24/7 Web Operations Center (Streamlit Dashboard):** Features a sleek Glassmorphic Dark Mode interface displaying:
   - 5 High-level KPI cards (Total Users, Credit Cards, Total Transactions, Total Volume $, Fraud Alerts).
   - Spark Engine status bar & latest transaction timestamps.
   - Real-time ingestion speed line charts & payment entry method distribution (Chip vs. Swipe vs. Online).
   - Live Feed table with automatic red highlighting for high-risk fraud transactions.
-- **📦 End-to-End Containerization:** Fully orchestrated via `docker-compose.yml`, spinning up Kafka, Zookeeper, Spark Cluster, Batch Jobs, Streaming Consumer, Producer, and the Web Dashboard seamlessly.
+- **End-to-End Containerization:** Fully orchestrated via `docker-compose.yml`, spinning up Kafka, Zookeeper, Spark Cluster, Batch Jobs, Streaming Consumer, Producer, and the Web Dashboard seamlessly.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Category | Technology / Library |
 | :--- | :--- |
@@ -70,7 +70,7 @@ Streamlit & Plotly (Port 8501)                                          Explorat
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```text
 credit_management/
@@ -104,7 +104,7 @@ credit_management/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Prerequisites
 - **Docker** & **Docker Desktop** installed (with Docker Compose support).
@@ -115,9 +115,9 @@ git clone https://github.com/Thien-anh-De/credit_management.git
 cd credit_management
 ```
 
-📥 **Download Raw Dataset (Bronze Layer)**:
+ **Download Raw Dataset (Bronze Layer)**:
 Due to file size constraints, raw datasets are excluded from Git repository. Download the raw CSV files from:
-👉 **[Google Drive Dataset Folder](https://drive.google.com/drive/folders/1vymvt8bZYZYNWhMuC_XnDR8N7PXDVoMc)**
+**[Google Drive Dataset Folder](https://drive.google.com/drive/folders/1vymvt8bZYZYNWhMuC_XnDR8N7PXDVoMc)**
 
 Extract and place the downloaded CSV files inside `data/bronze/`:
 - `sd254_users.csv`
@@ -135,7 +135,7 @@ Execute a single command to launch all infrastructure services and automated pip
 docker compose up -d
 ```
 
-> 💡 **Automated Execution within Containers:**
+> **Automated Execution within Containers:**
 > - `spark-batch-users` & `spark-batch-cards`: Automatically process raw Bronze data into Silver Data Lake Parquet format (`dim_users`, `dim_cards`).
 > - `spark-streaming-consumer`: Automatically subscribes to Kafka topic and appends streaming micro-batches into `fact_transactions`.
 > - `kafka-producer`: Automatically simulates live POS terminal transaction generation.
@@ -145,15 +145,15 @@ docker compose up -d
 
 ### 4. Access Admin & Monitoring Interfaces
 
-- 🌐 **Web Operations Dashboard:** [`http://localhost:8501`](http://localhost:8501)
-- ⚡ **Spark Master UI:** [`http://localhost:8080`](http://localhost:8080)
-- 👷 **Spark Worker UI:** [`http://localhost:8081`](http://localhost:8081)
+- **Web Operations Dashboard:** [`http://localhost:8501`](http://localhost:8501)
+- **Spark Master UI:** [`http://localhost:8080`](http://localhost:8080)
+- **Spark Worker UI:** [`http://localhost:8081`](http://localhost:8081)
 
 ---
 
-## 📝 Technical Documentation
+## Technical Documentation
 Detailed phase-by-phase implementation guides are available in the `docs/` folder:
-- 📄 [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
-- 📄 [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
-- 📄 [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
-- 📄 [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
+-  [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
+-  [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
+-  [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
+-  [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
