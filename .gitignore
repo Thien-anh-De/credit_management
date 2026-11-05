@@ -1,6 +1,10 @@
 # Dataset (Ignore large data files but keep folder structure via .gitkeep)
 *.csv
 *.parquet
+*.crc
+data/silver/*_backup/
+data/**/._SUCCESS.crc
+data/**/.*.crc
 
 
 # Python / Virtual Environment

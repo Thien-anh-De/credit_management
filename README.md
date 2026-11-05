@@ -153,7 +153,8 @@ docker compose up -d
 
 ## Technical Documentation
 Detailed phase-by-phase implementation guides are available in the `docs/` folder:
--  [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
--  [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
--  [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
--  [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
+- 🇻🇳 [Project Overview (Tổng quan dự án - Tiếng Việt)](PROJECT_OVERVIEW.md)
+- 🚀 [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
+- 📦 [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
+- ⚡ [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
+- 📊 [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
