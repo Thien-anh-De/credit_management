@@ -1,4 +1,4 @@
-﻿# ====================================================================================================
+# ====================================================================================================
 # clean_all.ps1 - Dọn Dẹp Toàn Bộ Dữ Liệu Sinh Ra (Reset Clean State)
 # ====================================================================================================
 # Mục đích:
@@ -38,7 +38,7 @@ try {
 Write-Host "`n[2/5] Dọn dẹp dữ liệu tầng Silver (data/silver)..." -ForegroundColor Cyan
 $silverPath = "data\silver"
 if (Test-Path $silverPath) {
-    Get-ChildItem -Path $silverPath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
+    Get-ChildItem -Path $silverPath -Exclude ".gitkeep" | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force
             Write-Host "  - Đã xóa: $($_.Name)" -ForegroundColor DarkGray
@@ -59,7 +59,7 @@ if (-not (Test-Path "$silverPath\.gitkeep")) {
 Write-Host "`n[3/5] Dọn dẹp dữ liệu tầng Gold (data/gold)..." -ForegroundColor Cyan
 $goldPath = "data\gold"
 if (Test-Path $goldPath) {
-    Get-ChildItem -Path $goldPath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
+    Get-ChildItem -Path $goldPath -Exclude ".gitkeep" | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force
             Write-Host "  - Đã xóa: $($_.Name)" -ForegroundColor DarkGray
@@ -95,7 +95,7 @@ Write-Host "  [OK] Đã dọn sạch toàn bộ cache tạm." -ForegroundColor G
 
 # 5. Kiểm tra và báo cáo trạng thái thư mục Bronze
 Write-Host "`n[5/5] Kiểm tra bảo toàn dữ liệu gốc tầng Bronze (data/bronze)..." -ForegroundColor Cyan
-$bronzeFiles = Get-ChildItem -Path "data\bronze" | Where-Object { -not $_.PSIsContainer -and $_.Name -ne ".gitkeep" }
+$bronzeFiles = Get-ChildItem -Path "data\bronze" -File -Exclude ".gitkeep"
 foreach ($f in $bronzeFiles) {
     $sizeMB = [math]::Round($f.Length / 1MB, 2)
     Write-Host "  • $($f.Name) ($sizeMB MB) — [BẢO TOÀN NGUYÊN VẸN]" -ForegroundColor Green
