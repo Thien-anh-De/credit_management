@@ -1,13 +1,13 @@
 # ====================================================================================================
-# clean_all.ps1 - Dọn Dẹp Toàn Bộ Dữ Liệu Sinh Ra (Reset Clean State)
+# clean_all.ps1 - Don Dep Toan Bo Du Lieu Sinh Ra (Reset Clean State)
 # ====================================================================================================
-# Mục đích:
-#   - Xóa sạch toàn bộ dữ liệu ở tầng Silver và Gold đã được tạo ra khi chạy pipeline.
-#   - Tắt các Docker container đang chạy ngầm (nếu có).
-#   - Xóa các file cache tạm (__pycache__, spark-warehouse...).
-#   - BẢO TOÀN 100% dữ liệu gốc ban đầu trong thư mục Bronze (sd254_users, sd254_cards, ibm_v2).
+# Muc dich:
+#   - Xoa sach toan bo du lieu o tang Silver va Gold da duoc tao ra khi chay pipeline.
+#   - Tat cac Docker container dang chay ngam (neu co).
+#   - Xoa cac file cache tam (__pycache__, spark-warehouse...).
+#   - BAO TOAN 100% du lieu goc ban dau trong thu muc Bronze (sd254_users, sd254_cards, ibm_v2).
 #
-# Cách dùng (từ thư mục gốc project):
+# Cach dung (tu thu muc goc project):
 #   .\clean_all.ps1
 # ====================================================================================================
 
@@ -15,102 +15,106 @@ $ErrorActionPreference = "Continue"
 
 Write-Host ""
 Write-Host "================================================================================" -ForegroundColor Cyan
-Write-Host "  🧹 BẮT ĐẦU DỌN DẸP TOÀN BỘ DỮ LIỆU ĐÃ TẠO (RESET VỀ TRẠNG THÁI GỐC)" -ForegroundColor Yellow
+Write-Host "  [CLEAN] BAT DAU DON DEP TOAN BO DU LIEU DA TAO (RESET VE TRANG THAI GOC)" -ForegroundColor Yellow
 Write-Host "================================================================================" -ForegroundColor Cyan
 Write-Host ""
 
-# 1. Tắt Docker containers nếu đang chạy để giải phóng file lock
-Write-Host "[1/5] Kiểm tra và dừng các container Docker..." -ForegroundColor Cyan
+# 1. Tat Docker containers neu dang chay de giai phong file lock
+Write-Host "[1/5] Kiem tra va dung cac container Docker..." -ForegroundColor Cyan
 try {
     $dockerRunning = docker ps -q 2>$null
     if ($dockerRunning) {
-        Write-Host "  -> Đang dừng các container Docker..." -ForegroundColor Yellow
+        Write-Host "  -> Dang dung cac container Docker..." -ForegroundColor Yellow
         docker compose down 2>$null
-        Write-Host "  [OK] Đã tắt các container Docker an toàn." -ForegroundColor Green
+        Write-Host "  [OK] Da tat cac container Docker an toan." -ForegroundColor Green
     } else {
-        Write-Host "  [OK] Không có container Docker nào đang chạy." -ForegroundColor Green
+        Write-Host "  [OK] Khong co container Docker nao dang chay." -ForegroundColor Green
     }
 } catch {
-    Write-Host "  [OK] Không có container Docker nào đang chạy." -ForegroundColor Green
+    Write-Host "  [OK] Khong co container Docker nao dang chay." -ForegroundColor Green
 }
 
-# 2. Dọn dẹp tầng Silver
-Write-Host "`n[2/5] Dọn dẹp dữ liệu tầng Silver (data/silver)..." -ForegroundColor Cyan
+# 2. Don dep tang Silver
+Write-Host ""
+Write-Host "[2/5] Don dep du lieu tang Silver (data/silver)..." -ForegroundColor Cyan
 $silverPath = "data\silver"
 if (Test-Path $silverPath) {
-    Get-ChildItem -Path $silverPath -Exclude ".gitkeep" | ForEach-Object {
+    Get-ChildItem -Path $silverPath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force
-            Write-Host "  - Đã xóa: $($_.Name)" -ForegroundColor DarkGray
+            Write-Host "  - Da xoa: $($_.Name)" -ForegroundColor DarkGray
         } catch {
-            Write-Host "  [!] Không thể xóa $($_.Name): $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  [!] Khong the xoa $($_.Name): $($_.Exception.Message)" -ForegroundColor Red
         }
     }
-    Write-Host "  [OK] Tầng Silver đã được dọn sạch hoàn toàn." -ForegroundColor Green
+    Write-Host "  [OK] Tang Silver da duoc don sach hoan toan." -ForegroundColor Green
 } else {
     New-Item -ItemType Directory -Path $silverPath -Force | Out-Null
-    Write-Host "  [OK] Đã khởi tạo thư mục data/silver trống." -ForegroundColor Green
+    Write-Host "  [OK] Da khoi tao thu muc data/silver trong." -ForegroundColor Green
 }
 if (-not (Test-Path "$silverPath\.gitkeep")) {
     New-Item -ItemType File -Path "$silverPath\.gitkeep" -Force | Out-Null
 }
 
-# 3. Dọn dẹp tầng Gold
-Write-Host "`n[3/5] Dọn dẹp dữ liệu tầng Gold (data/gold)..." -ForegroundColor Cyan
+# 3. Don dep tang Gold
+Write-Host ""
+Write-Host "[3/5] Don dep du lieu tang Gold (data/gold)..." -ForegroundColor Cyan
 $goldPath = "data\gold"
 if (Test-Path $goldPath) {
-    Get-ChildItem -Path $goldPath -Exclude ".gitkeep" | ForEach-Object {
+    Get-ChildItem -Path $goldPath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
         try {
             Remove-Item -Path $_.FullName -Recurse -Force
-            Write-Host "  - Đã xóa: $($_.Name)" -ForegroundColor DarkGray
+            Write-Host "  - Da xoa: $($_.Name)" -ForegroundColor DarkGray
         } catch {
-            Write-Host "  [!] Không thể xóa $($_.Name): $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "  [!] Khong the xoa $($_.Name): $($_.Exception.Message)" -ForegroundColor Red
         }
     }
-    Write-Host "  [OK] Tầng Gold (DWH & Data Marts) đã được dọn sạch hoàn toàn." -ForegroundColor Green
+    Write-Host "  [OK] Tang Gold (DWH & Data Marts) da duoc don sach hoan toan." -ForegroundColor Green
 } else {
     New-Item -ItemType Directory -Path $goldPath -Force | Out-Null
-    Write-Host "  [OK] Đã khởi tạo thư mục data/gold trống." -ForegroundColor Green
+    Write-Host "  [OK] Da khoi tao thu muc data/gold trong." -ForegroundColor Green
 }
 if (-not (Test-Path "$goldPath\.gitkeep")) {
     New-Item -ItemType File -Path "$goldPath\.gitkeep" -Force | Out-Null
 }
 
-# 4. Dọn dẹp cache Python và Spark tạm
-Write-Host "`n[4/5] Dọn dẹp cache tạm (__pycache__, spark-warehouse)..." -ForegroundColor Cyan
+# 4. Don dep cache Python va Spark tam
+Write-Host ""
+Write-Host "[4/5] Don dep cache tam (__pycache__, spark-warehouse)..." -ForegroundColor Cyan
 $tempItems = @(
     "spark-warehouse", "metastore_db", "derby.log"
 )
 foreach ($t in $tempItems) {
     if (Test-Path $t) {
         Remove-Item -Path $t -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "  - Đã xóa: $t" -ForegroundColor DarkGray
+        Write-Host "  - Da xoa: $t" -ForegroundColor DarkGray
     }
 }
 Get-ChildItem -Path . -Recurse -Filter "__pycache__" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
     Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "  - Đã xóa cache: $($_.FullName)" -ForegroundColor DarkGray
+    Write-Host "  - Da xoa cache: $($_.FullName)" -ForegroundColor DarkGray
 }
-Write-Host "  [OK] Đã dọn sạch toàn bộ cache tạm." -ForegroundColor Green
+Write-Host "  [OK] Da don sach toan bo cache tam." -ForegroundColor Green
 
-# 5. Kiểm tra và báo cáo trạng thái thư mục Bronze
-Write-Host "`n[5/5] Kiểm tra bảo toàn dữ liệu gốc tầng Bronze (data/bronze)..." -ForegroundColor Cyan
-$bronzeFiles = Get-ChildItem -Path "data\bronze" -File -Exclude ".gitkeep"
+# 5. Kiem tra va bao cao trang thai thu muc Bronze
+Write-Host ""
+Write-Host "[5/5] Kiem tra bao toan du lieu goc tang Bronze (data/bronze)..." -ForegroundColor Cyan
+$bronzeFiles = Get-ChildItem -Path "data\bronze" | Where-Object { -not $_.PSIsContainer -and $_.Name -ne ".gitkeep" }
 foreach ($f in $bronzeFiles) {
     $sizeMB = [math]::Round($f.Length / 1MB, 2)
-    Write-Host "  • $($f.Name) ($sizeMB MB) — [BẢO TOÀN NGUYÊN VẸN]" -ForegroundColor Green
+    Write-Host "  * $($f.Name) ($sizeMB MB) -- [BAO TOAN NGUYEN VEN]" -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "  ✅ HOÀN TẤT DỌN DẸP! HỆ THỐNG ĐÃ TRỞ VỀ TRẠNG THÁI SẠCH BAN ĐẦU" -ForegroundColor Green
+Write-Host "  [SUCCESS] HOAN TAT DON DEP! HE THONG DA TRO VE TRANG THAI SACH BAN DAU" -ForegroundColor Green
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "  - Tầng Bronze : Giữ nguyên 3 file gốc ban đầu." -ForegroundColor Yellow
-Write-Host "  - Tầng Silver : Trống (0 bản ghi)." -ForegroundColor Yellow
-Write-Host "  - Tầng Gold   : Trống (0 bản ghi)." -ForegroundColor Yellow
+Write-Host "  - Tang Bronze : Giu nguyen 3 file goc ban dau." -ForegroundColor Yellow
+Write-Host "  - Tang Silver : Trong (0 ban ghi)." -ForegroundColor Yellow
+Write-Host "  - Tang Gold   : Trong (0 ban ghi)." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "  Khi muốn chạy lại hệ thống từ đầu, bạn chỉ cần gõ:" -ForegroundColor Cyan
-Write-Host "    .\run_dwh_pipeline.ps1   (Tự động nạp Silver và Gold)" -ForegroundColor Yellow
-Write-Host "    docker compose up -d     (Bật streaming và web dashboard)" -ForegroundColor Yellow
+Write-Host "  Khi muon chay lai he thong tu dau, ban chi can go:" -ForegroundColor Cyan
+Write-Host "    .\run_dwh_pipeline.ps1   (Tu dong nap Silver va Gold)" -ForegroundColor Yellow
+Write-Host "    docker compose up -d     (Bat streaming va web dashboard)" -ForegroundColor Yellow
 Write-Host "================================================================================" -ForegroundColor Green
 Write-Host ""
