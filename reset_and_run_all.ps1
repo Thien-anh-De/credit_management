@@ -1,43 +1,58 @@
 # ====================================================================================================
-# SCRIPT RESET VÀ CHẠY LẠI TOÀN BỘ HỆ THỐNG TỪ ĐẦU (END-TO-END PIPELINE)
+# SCRIPT RESET VA CHAY LAI TOAN BO HE THONG TU DAU (END-TO-END DEMO PIPELINE)
+# Medallion Lakehouse (Bronze -> Silver -> Gold) & Kimball Star Schema Data Warehouse
 # ====================================================================================================
 
+$ErrorActionPreference = "Stop"
+$env:PYTHONUTF8 = "1"
+
 Write-Host "================================================================================" -ForegroundColor Cyan
-Write-Host "🧹 BẮT ĐẦU RESET TOÀN BỘ DỮ LIỆU SILVER VÀ GOLD (GIỮ NGUYÊN BRONZE)" -ForegroundColor Yellow
+Write-Host "[*] BAT DAU RESET TOAN BO DU LIEU SILVER VA GOLD (GIU NGUYEN BRONZE)..." -ForegroundColor Yellow
 Write-Host "================================================================================" -ForegroundColor Cyan
 
-# 1. Dọn dẹp Silver
-if (Test-Path "data\silver\dim_users") { Remove-Item -Recurse -Force "data\silver\dim_users" }
-if (Test-Path "data\silver\dim_cards") { Remove-Item -Recurse -Force "data\silver\dim_cards" }
-if (Test-Path "data\silver\fact_transactions") { Remove-Item -Recurse -Force "data\silver\fact_transactions" }
-if (Test-Path "data\silver\checkpoints") { Remove-Item -Recurse -Force "data\silver\checkpoints" }
-Write-Host "✅ Đã dọn sạch tầng Silver." -ForegroundColor Green
+# 1. Don dep Silver
+$silver_items = @(
+    "dim_users", "dim_cards", "fact_transactions", "checkpoints", "dim_cards_baseline_backup"
+)
+foreach ($item in $silver_items) {
+    $p = "data\silver\$item"
+    if (Test-Path $p) { Remove-Item -Recurse -Force $p }
+}
+Write-Host "[OK] Da don sach tang Silver." -ForegroundColor Green
 
-# 2. Dọn dẹp Gold
+# 2. Don dep Gold
 $gold_folders = @("dim_date", "dim_merchant", "dim_users", "dim_cards", "fact_transactions", 
                   "agg_daily_merchant_vol", "agg_monthly_merchant_vol", "agg_quarterly_merchant_vol", "agg_daily_card_fraud")
 foreach ($folder in $gold_folders) {
     $path = "data\gold\$folder"
     if (Test-Path $path) { Remove-Item -Recurse -Force $path }
 }
-Write-Host "✅ Đã dọn sạch tầng Gold DWH." -ForegroundColor Green
+Write-Host "[OK] Da don sach tang Gold DWH." -ForegroundColor Green
 
-# 3. Chạy lại Batch Pipeline (Bronze -> Silver)
-Write-Host "`n🚀 BƯỚC 1: XỬ LÝ BATCH BRONZE -> SILVER..." -ForegroundColor Cyan
+# 3. Chay Batch Pipeline du lieu the ngan hang (Bronze -> Silver)
+Write-Host "`n[*] BUOC 1: XU LY BATCH DU LIEU NGAN HANG BRONZE -> SILVER..." -ForegroundColor Cyan
 python src\batch_jobs\process_users.py
 python src\batch_jobs\process_cards.py
-python src\batch_jobs\process_transactions.py
-Write-Host "✅ Hoàn tất xây dựng tầng Silver!" -ForegroundColor Green
+python src\batch_jobs\process_transactions.py --limit 20000
+Write-Host "[OK] Hoan tat xay dung tang Silver!" -ForegroundColor Green
 
-# 4. Chạy lại DWH Pipeline (Silver -> Gold)
-Write-Host "`n🚀 BƯỚC 2: XÂY DỰNG DATA WAREHOUSE GOLD LAYER..." -ForegroundColor Cyan
+# 4. Chay DWH Pipeline (Silver -> Gold: Star Schema, SCD2 PIT Join, Inmon Summary Layers)
+Write-Host "`n[*] BUOC 2: XAY DUNG DATA WAREHOUSE GOLD LAYER..." -ForegroundColor Cyan
 .\run_dwh_pipeline.ps1
 
-# 5. Đồng bộ vào SQL Server / SSMS
-Write-Host "`n🚀 BƯỚC 3: ĐỒNG BỘ DỮ LIỆU VÀO SQL SERVER / SSMS..." -ForegroundColor Cyan
-python src\sync_to_sqlserver.py
+# 5. Dong bo vao SQL Server / SSMS (neu service dang chay)
+Write-Host "`n[*] BUOC 3: DONG BO DU LIEU VAO SQL SERVER / SSMS..." -ForegroundColor Cyan
+try {
+    python src\sync_to_sqlserver.py
+} catch {
+    Write-Host "[!] Bo qua buoc sync SSMS neu dich vu SQL Server chua khoi dong." -ForegroundColor Yellow
+}
 
 Write-Host "`n================================================================================" -ForegroundColor Green
-Write-Host "🎉 TOÀN BỘ QUY TRÌNH ĐÃ ĐƯỢC CHẠY LẠI THÀNH CÔNG TỪ ĐẦU!" -ForegroundColor Green
-Write-Host "👉 Bạn có thể mở SSMS xem kết quả hoặc chạy 'streamlit run src/web_dashboard.py'." -ForegroundColor Yellow
+Write-Host "[SUCCESS] TOAN BO QUY TRINH MEDALLION VA DWH DA DUOC DUNG LAI THANH CONG TU DAU!" -ForegroundColor Green
+Write-Host "-> 1. Xem So do Kien truc   : docs/architecture_and_repo.md" -ForegroundColor Yellow
+Write-Host "-> 2. Xem Bao cao DQ & Bench: docs/data_quality_benchmark_report.md" -ForegroundColor Yellow
+Write-Host "-> 3. Mo Web Dashboard      : streamlit run src/web_dashboard.py" -ForegroundColor Yellow
+Write-Host "-> 4. Mo phong SCD Type 2   : python src/dwh_jobs/simulate_scd2_changes.py --effective-date 2015-06-01" -ForegroundColor Yellow
+Write-Host "-> 5. Truy van DWH OLAP     : python src/query_dwh.py" -ForegroundColor Yellow
 Write-Host "================================================================================" -ForegroundColor Green

@@ -27,12 +27,19 @@ def main():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
     # Xác định file nguồn
+    default_user0 = os.path.join(base_dir, "data", "bronze", "User0_credit_card_transactions.csv")
+    default_big   = os.path.join(base_dir, "data", "bronze", "credit_card_transactions-ibm_v2.csv")
+
     if args.source:
-        csv_path = args.source
+        src_lower = args.source.strip().lower()
+        if src_lower in ["sample", "user0", "small"]:
+            csv_path = default_user0
+        elif src_lower in ["full", "big", "ibm_v2", "all"]:
+            csv_path = default_big
+        else:
+            csv_path = args.source
     else:
         # Ưu tiên User0 nếu muốn chạy nhanh test, hoặc big CSV nếu muốn đầy đủ
-        default_user0 = os.path.join(base_dir, "data", "bronze", "User0_credit_card_transactions.csv")
-        default_big   = os.path.join(base_dir, "data", "bronze", "credit_card_transactions-ibm_v2.csv")
         csv_path = default_user0 if os.path.exists(default_user0) else default_big
 
     output_path = os.path.join(base_dir, "data", "silver", "fact_transactions")

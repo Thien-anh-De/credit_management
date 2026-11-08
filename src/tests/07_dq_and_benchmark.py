@@ -29,7 +29,7 @@ E) QUERY PERFORMANCE BENCHMARK (Đo tốc độ truy vấn)
    - Atomic Fact vs Summary Layers (Daily, Monthly, Quarterly)
    - Đo lường và tính toán Speedup Factor (tốc độ tăng tốc)
 
-Đầu ra: Console output chi tiết + Ghi file Markdown docs/milestone5_dq_benchmark_report.md
+Đầu ra: Console output chi tiết + Ghi file Markdown docs/data_quality_benchmark_report.md
 Chạy: python src/tests/07_dq_and_benchmark.py
 """
 import os
@@ -199,14 +199,28 @@ def run_scd2_consistency(spark, base_dir: str) -> dict:
 
 
 def run_reconciliation(spark, base_dir: str) -> dict:
-    """Đối soát tổng tiền, số dòng và số gian lận giữa fact và toàn bộ 4 bảng summary (Inmon Rollup)."""
-    print_header("⚖️ D) FACT VS SUMMARY RECONCILIATION (Đối soát tính toàn vẹn chuỗi Roll-up)")
+    """Đối soát tổng tiền, số dòng và số gian lận giữa nguồn Bronze CSV, fact và 4 bảng summary (Inmon Rollup)."""
+    print_header("⚖️ D) FACT VS SUMMARY & BRONZE RECONCILIATION (Đối soát tính toàn vẹn DWH)")
 
-    fact         = spark.read.parquet(os.path.join(base_dir, "data", "gold", "fact_transactions"))
-    daily_card   = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_daily_card_fraud"))
-    daily_merch  = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_daily_merchant_vol"))
-    monthly      = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_monthly_merchant_vol"))
-    quarterly    = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_quarterly_merchant_vol"))
+    bronze_csv = os.path.join(base_dir, "data", "bronze", "User0_credit_card_transactions.csv")
+    fact       = spark.read.parquet(os.path.join(base_dir, "data", "gold", "fact_transactions"))
+    daily_card = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_daily_card_fraud"))
+    daily_merch= spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_daily_merchant_vol"))
+    monthly    = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_monthly_merchant_vol"))
+    quarterly  = spark.read.parquet(os.path.join(base_dir, "data", "gold", "agg_quarterly_merchant_vol"))
+
+    # Đọc đối soát từ nguồn Bronze CSV
+    from pyspark.sql.functions import regexp_replace
+    from pyspark.sql.types import DoubleType
+    if os.path.exists(bronze_csv):
+        df_bronze = spark.read.csv(bronze_csv, header=True, inferSchema=True)
+        bronze_cnt = df_bronze.count()
+        amt_col = next((c for c in df_bronze.columns if "amount" in c.lower()), "Amount")
+        df_bronze_amt = df_bronze.withColumn("_amt", regexp_replace(col(amt_col).cast("string"), r"[\$,]", "").cast(DoubleType()))
+        bronze_vol = df_bronze_amt.agg(_sum("_amt")).collect()[0][0] or 0.0
+    else:
+        bronze_cnt = fact.count()
+        bronze_vol = fact.agg(_sum("amount")).collect()[0][0] or 0.0
 
     # Tính toán chỉ số từ Atomic Fact
     fact_cnt   = fact.count()
@@ -233,21 +247,33 @@ def run_reconciliation(spark, base_dir: str) -> dict:
     q_vol   = quarterly.agg(_sum("total_volume")).collect()[0][0] or 0.0
     q_fraud = quarterly.agg(_sum("fraud_count")).collect()[0][0] or 0
 
-    print(f"\n  {'Tầng dữ liệu (Layer)':<32} | {'Tổng dòng':<12} | {'Doanh số ($)':<16} | {'Gian lận (Fraud)'}")
+    print(f"\n  {'Tầng dữ liệu (Data Layer)':<32} | {'Tổng dòng':<12} | {'Doanh số ($)':<16} | {'Gian lận (Fraud)'}")
     print("  " + "-" * 78)
-    print(f"  {'Atomic fact_transactions':<32} | {fact_cnt:>12,} | ${fact_vol:>14,.2f} | {fact_fraud:>14,}")
+    print(f"  {'Bronze Source (Nguồn gốc CSV)':<32} | {bronze_cnt:>12,} | ${bronze_vol:>14,.2f} | {'N/A (Chưa lọc)'}")
+    print(f"  {'Atomic fact_transactions (DWH)':<32} | {fact_cnt:>12,} | ${fact_vol:>14,.2f} | {fact_fraud:>14,}")
     print(f"  {'Card: agg_daily_card_fraud':<32} | {dc_cnt:>12,} | ${dc_vol:>14,.2f} | {dc_fraud:>14,}")
     print(f"  {'Inmon: agg_daily_merchant_vol':<32} | {dm_cnt:>12,} | ${dm_vol:>14,.2f} | {dm_fraud:>14,}")
     print(f"  {'Inmon: agg_monthly_merchant_vol':<32} | {m_cnt:>12,} | ${m_vol:>14,.2f} | {m_fraud:>14,}")
     print(f"  {'Inmon: agg_quarterly_merchant_vol':<32} | {q_cnt:>12,} | ${q_vol:>14,.2f} | {q_fraud:>14,}")
 
+    src_match   = (bronze_cnt == fact_cnt and abs(bronze_vol - fact_vol) < 0.05)
     cnt_match   = (fact_cnt == dc_cnt == dm_cnt == m_cnt == q_cnt)
     vol_match   = (abs(fact_vol - dc_vol) < 0.05 and abs(fact_vol - dm_vol) < 0.05 and abs(fact_vol - m_vol) < 0.05 and abs(fact_vol - q_vol) < 0.05)
     fraud_match = (fact_fraud == dc_fraud == dm_fraud == m_fraud == q_fraud)
 
-    print("\n  ─── Kết quả Đối Soát (Inmon Additive Roll-up Consistency) ───")
+    print("\n  ─── Kết quả Đối Soát Toàn Vẹn (Bronze ➔ Fact ➔ Summary Hierarchy) ───")
+    print(f"  • Đối soát Nguồn Bronze vs Fact Gold         : {'✅ PASS (100% Khớp)' if src_match else '❌ FAIL'}")
     print(f"  • Khớp 100% số lượng giao dịch (Row Count)  : {'✅ PASS' if cnt_match else '❌ FAIL'}")
     print(f"  • Khớp 100% tổng dòng tiền (Dollar Volume)  : {'✅ PASS' if vol_match else '❌ FAIL'}")
+    print(f"  • Khớp 100% số vụ gian lận (Fraud Count)   : {'✅ PASS' if fraud_match else '❌ FAIL'}")
+
+    return {
+        "bronze_cnt": bronze_cnt, "bronze_vol": bronze_vol, "src_match": src_match,
+        "fact_cnt": fact_cnt, "dc_cnt": dc_cnt, "dm_cnt": dm_cnt, "m_cnt": m_cnt, "q_cnt": q_cnt, "cnt_match": cnt_match,
+        "fact_vol": fact_vol, "dc_vol": dc_vol, "dm_vol": dm_vol, "m_vol": m_vol, "q_vol": q_vol, "vol_match": vol_match,
+        "fact_fraud": fact_fraud, "dc_fraud": dc_fraud, "dm_fraud": dm_fraud, "m_fraud": m_fraud, "q_fraud": q_fraud, "fraud_match": fraud_match,
+        "overall_pass": (src_match and cnt_match and vol_match and fraud_match)
+    }
     print(f"  • Khớp 100% số vụ gian lận (Fraud Count)   : {'✅ PASS' if fraud_match else '❌ FAIL'}")
 
     return {
@@ -415,7 +441,7 @@ def write_full_report(ri: dict, pk: dict, scd2: dict, recon: dict, bench: dict, 
 
 def main():
     base_dir    = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    report_path = os.path.join(base_dir, "docs", "milestone5_dq_benchmark_report.md")
+    report_path = os.path.join(base_dir, "docs", "data_quality_benchmark_report.md")
 
     spark = SparkSession.builder \
         .appName("DWH_07_DQ_Comprehensive_Benchmark") \

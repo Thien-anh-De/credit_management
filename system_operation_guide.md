@@ -56,7 +56,7 @@ Hệ thống mô phỏng **ngân hàng xử lý giao dịch thẻ tín dụng 24
   ┌────────────────────┐  ┌────────────────────────┐
   │  WEB DASHBOARD     │  │  KIỂM THỬ DWH          │
   │  web_dashboard.py  │  │  07_dq_and_benchmark.py│
-  │  :8501 (Streamlit) │  │  → báo cáo Milestone5.1│
+  │  :8501 (Streamlit) │  │  → data_quality_rep│
   └────────────────────┘  └────────────────────────┘
 ```
 
@@ -347,7 +347,7 @@ python src/tests/07_dq_and_benchmark.py
   🚀 Summary Query (agg_daily_card_fraud scan): 0.043s
   📈 Speedup Factor: 112.1x faster
 
-  📄 Báo cáo đã được lưu tại: docs/milestone5_dq_benchmark_report.md
+  📄 Báo cáo đã được lưu tại: docs/data_quality_benchmark_report.md
 ```
 
 ---
@@ -426,7 +426,7 @@ transactions.csv ──► kafka_producer ──► Kafka ──► spark_consum
                                                                      │
                                                           07_dq_and_benchmark.py
                                                                      │
-                                                          docs/milestone5_report.md
+                                                          docs/data_quality_benchmark_report.md
 ```
 
 ---
@@ -455,7 +455,7 @@ transactions.csv ──► kafka_producer ──► Kafka ──► spark_consum
 □ 5. Đợi streaming tích lũy đủ data (5-10 phút)
 □ 6. Chạy: .\run_dwh_pipeline.ps1
 □ 7. Chạy: python src/tests/07_dq_and_benchmark.py
-□ 8. Xem báo cáo: docs/milestone5_dq_benchmark_report.md
+□ 8. Xem báo cáo: docs/data_quality_benchmark_report.md
 □ 9. Mở Notebook EDA: notebooks/data_analysis.ipynb
 □ 10. Xong!
 ```

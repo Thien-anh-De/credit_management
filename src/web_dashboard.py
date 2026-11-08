@@ -124,18 +124,17 @@ def load_gold_data():
 def get_sqlite_gold_conn():
     conn = sqlite3.connect(":memory:", check_same_thread=False)
     tables = [
-        ("dim_date", "dim_date"),
-        ("dim_merchant", "dim_merchant"),
-        ("dim_users", "dim_users"),
-        ("dim_cards", "dim_cards"),
-        ("fact_transactions", "fact_transactions"),
-        ("agg_daily_merchant_vol", "agg_daily_merchant_vol"),
-        ("agg_monthly_merchant_vol", "agg_monthly_merchant_vol"),
-        ("agg_quarterly_merchant_vol", "agg_quarterly_merchant_vol"),
-        ("agg_daily_card_fraud", "agg_daily_card_fraud")
+        ("dim_date", os.path.join(BASE_DIR, "data", "gold", "dim_date")),
+        ("dim_merchant", os.path.join(BASE_DIR, "data", "gold", "dim_merchant")),
+        ("dim_users", os.path.join(BASE_DIR, "data", "gold", "dim_users")),
+        ("dim_cards", os.path.join(BASE_DIR, "data", "gold", "dim_cards")),
+        ("fact_transactions", os.path.join(BASE_DIR, "data", "gold", "fact_transactions")),
+        ("agg_daily_merchant_vol", os.path.join(BASE_DIR, "data", "gold", "agg_daily_merchant_vol")),
+        ("agg_monthly_merchant_vol", os.path.join(BASE_DIR, "data", "gold", "agg_monthly_merchant_vol")),
+        ("agg_quarterly_merchant_vol", os.path.join(BASE_DIR, "data", "gold", "agg_quarterly_merchant_vol")),
+        ("agg_daily_card_fraud", os.path.join(BASE_DIR, "data", "gold", "agg_daily_card_fraud"))
     ]
-    for view_name, folder in tables:
-        path = os.path.join(BASE_DIR, "data", "gold", folder)
+    for view_name, path in tables:
         if os.path.exists(path):
             try:
                 df = pd.read_parquet(path)
@@ -147,12 +146,15 @@ def get_sqlite_gold_conn():
 
 # TẠO THANH ĐIỀU HƯỚNG CÀI ĐẶT (SIDEBAR)
 st.sidebar.title("⚙️ Cài đặt Dashboard")
-auto_refresh = st.sidebar.checkbox("Tự động làm mới (3s)", value=True)
-refresh_interval = st.sidebar.slider("Tần suất làm mới (giây)", 1, 10, 3)
+auto_refresh = st.sidebar.checkbox("Tự động làm mới (Streaming 24/7)", value=False)
+if auto_refresh:
+    refresh_interval = st.sidebar.slider("Tần suất làm mới (giây)", 2, 10, 5)
+    st.sidebar.caption("⚠️ Đang bật tự động cập nhật luồng. Tắt đi khi muốn xem bảng tĩnh hoặc viết SQL.")
 
-if st.sidebar.button("🔄 Làm mới thủ công"):
+if st.sidebar.button("🔄 Làm mới dữ liệu thủ công"):
     st.cache_data.clear()
     st.cache_resource.clear()
+    st.rerun()
 
 st.sidebar.markdown("### 🖥️ Công cụ quản lý Cluster")
 st.sidebar.markdown("- ⚡ [Spark Master UI](http://localhost:8080)")
@@ -275,6 +277,14 @@ with tab_dwh:
     if monthly_df.empty:
         st.warning("⚠️ Chưa phát hiện bảng Gold Summary. Vui lòng chạy `run_dwh_pipeline.ps1` để xây dựng Gold Layer.")
     else:
+        with st.expander("🏛️ Xem Tóm Tắt Kiến Trúc Tầng Gold (Kimball Star Schema & Inmon Roll-up)", expanded=False):
+            st.markdown("""
+            * **Mô hình DWH:** **Kimball Star Schema** — Bảng sự kiện Atomic (`fact_transactions`: 19,963 giao dịch chi tiết) liên kết 4 bảng chiều qua Surrogate Keys.
+            * **Chiến lược SCD:** `dim_date` (SCD0 - Bất biến), `dim_merchant` (SCD1 - Ghi đè), `dim_cards` & `dim_users` (SCD2 - Lưu vết lịch sử `effective_date`, `expiration_date`, `is_current`).
+            * **Tháp phân tầng Inmon:** Chuỗi Roll-up bảo toàn độ đo cộng dồn (Additive): **Ngày** (`agg_daily_merchant_vol`) ➔ **Tháng** (`agg_monthly_merchant_vol`) ➔ **Quý** (`agg_quarterly_merchant_vol`).
+            * 📄 **Sơ đồ chi tiết:** Xem tại tệp [`docs/gold_dwh_architecture_and_diagrams.md`](file:///e:/credit_management/docs/gold_dwh_architecture_and_diagrams.md).
+            """)
+
         # DWH KPIs
         dwh_vol = monthly_df["total_volume"].sum() if "total_volume" in monthly_df.columns else 0.0
         dwh_tx  = monthly_df["total_txn"].sum() if "total_txn" in monthly_df.columns else 0
@@ -332,6 +342,28 @@ with tab_dwh:
                 st.dataframe(fraud_cards[["date_sk", "card_sk", "total_txn", "total_amount", "fraud_count", "fraud_rate_pct"]], use_container_width=True)
             else:
                 st.info("Không có thẻ nào bị gian lận trong tập mẫu hiện tại.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.subheader("🔍 Trình Duyệt Dữ Liệu Tầng Gold (Gold Data Inspector)")
+        st.caption("Xem trực tiếp các bản ghi thực tế được lưu trữ trong tầng Gold Parquet:")
+        gold_options = {
+            "fact_transactions (Bảng sự kiện giao dịch Atomic)": GOLD_FACT_PATH,
+            "dim_cards (Thẻ tín dụng SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_cards"),
+            "dim_users (Hồ sơ khách hàng SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_users"),
+            "dim_merchant (Thương nhân SCD Type 1)": GOLD_MERCHANT_PATH,
+            "dim_date (Lịch thời gian 1995-2035)": os.path.join(BASE_DIR, "data", "gold", "dim_date"),
+            "agg_monthly_merchant_vol (Tổng hợp Tháng Inmon)": GOLD_MONTHLY_PATH,
+            "agg_quarterly_merchant_vol (Tổng hợp Quý Inmon)": GOLD_QUARTERLY_PATH
+        }
+        chosen_tbl = st.selectbox("Chọn bảng Gold để xem bản ghi:", list(gold_options.keys()))
+        target_path = gold_options[chosen_tbl]
+        if os.path.exists(target_path):
+            try:
+                tbl_df = pd.read_parquet(target_path)
+                st.write(f"Tổng số dòng trong bảng: **{len(tbl_df):,} dòng** | Hiển thị 15 bản ghi mẫu:")
+                st.dataframe(tbl_df.head(15), use_container_width=True)
+            except Exception as e:
+                st.warning(f"Không thể đọc bảng: {e}")
 
 with tab_sql:
     st.markdown("""

@@ -82,11 +82,12 @@ credit_management/
 │       ├── fact_transactions/   # Streaming fact transaction table
 │       └── checkpoints/         # Spark Offset Checkpoints
 ├── docs/                        # Detailed technical documentation
-│   ├── architecture_and_repo.md
-│   ├── phase1_infrastructure.md
-│   ├── phase2_batch_pipeline.md
-│   ├── phase3_streaming_pipeline.md
-│   └── phase4_analytics.md
+│   ├── architecture_and_repo.md # System architecture, Mermaid ERD & Flowcharts
+│   ├── data_dictionary.md       # Automated data dictionary of 11 tables
+│   ├── dwh_schema_ssms.sql      # T-SQL DDL for SQL Server / SSMS Star Schema
+│   ├── scd2_simulation_evidence.md # SCD Type 2 Point-in-Time Join verification
+│   ├── data_quality_benchmark_report.md # Data quality & query performance report
+│   └── final_project_defense_guide.md # Presentation & defense walkthrough guide
 ├── src/
 │   ├── batch_jobs/              # PySpark batch transformation scripts
 │   │   ├── process_users.py
@@ -123,7 +124,6 @@ Extract and place the downloaded CSV files inside `data/bronze/`:
 - `sd254_users.csv`
 - `sd254_cards.csv`
 - `credit_card_transactions-ibm_v2.csv`
-- `User0_credit_card_transactions.csv`
 
 ---
 
@@ -152,9 +152,11 @@ docker compose up -d
 ---
 
 ## Technical Documentation
-Detailed phase-by-phase implementation guides are available in the `docs/` folder:
-- 🇻🇳 [Project Overview (Tổng quan dự án - Tiếng Việt)](PROJECT_OVERVIEW.md)
-- 🚀 [Phase 1: Docker Infrastructure Setup](docs/phase1_infrastructure.md)
-- 📦 [Phase 2: Batch Data Pipeline Processing](docs/phase2_batch_pipeline.md)
-- ⚡ [Phase 3: Real-Time Streaming Data Pipeline](docs/phase3_streaming_pipeline.md)
-- 📊 [Phase 4: Real-Time Analytics & Operations Dashboard](docs/phase4_analytics.md)
+Comprehensive technical documentation and reports are available in the `docs/` folder:
+- 🇻🇳 [Project Overview (Tổng quan toàn diện dự án)](PROJECT_OVERVIEW.md)
+- 🏛️ [Architecture & DWH Blueprint (Sơ đồ ERD, Luồng ETL & Tháp Inmon)](docs/architecture_and_repo.md)
+- 📖 [Data Dictionary (Từ điển dữ liệu 11 bảng)](docs/data_dictionary.md)
+- 💾 [SSMS DDL Script (Star Schema T-SQL)](docs/dwh_schema_ssms.sql)
+- 🔬 [SCD Type 2 Simulation Evidence (Kiểm chứng Point-in-Time Join)](docs/scd2_simulation_evidence.md)
+- 📊 [Data Quality & Benchmark Report](docs/data_quality_benchmark_report.md)
+- 🎓 [Project Defense Guide (Sổ tay bảo vệ đồ án)](docs/final_project_defense_guide.md)

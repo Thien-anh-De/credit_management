@@ -2,6 +2,8 @@
 *.csv
 *.parquet
 *.crc
+_SUCCESS
+data/**/_SUCCESS
 data/silver/*_backup/
 data/**/._SUCCESS.crc
 data/**/.*.crc

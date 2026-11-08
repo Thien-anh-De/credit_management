@@ -21,6 +21,7 @@ Chạy: spark-submit src/dwh_jobs/05_build_fact_transactions.py
 """
 import os
 import sys
+import argparse
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -35,6 +36,10 @@ from pyspark.sql.types import IntegerType, LongType
 
 
 def main():
+    parser = argparse.ArgumentParser(description="DWH 05: Build fact_transactions with SCD2 PIT Join")
+    parser.add_argument("--limit", type=int, default=0, help="Limit number of rows to process (0 = all)")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("  [DWH JOB 05] BUILD fact_transactions (SCD2 Point-in-Time Join) — Gold Layer")
     print("=" * 60)
@@ -58,6 +63,9 @@ def main():
     # ── Đọc Silver fact ──
     print(f"-> Đọc fact_transactions Silver từ: {silver_fact}")
     fact = spark.read.parquet(silver_fact)
+    if args.limit > 0:
+        print(f"-> Giới hạn xử lý: {args.limit:,} dòng")
+        fact = fact.limit(args.limit)
     print(f"-> Schema Silver fact: {fact.columns}")
 
     # ── Đọc các Dim Gold ĐẦY ĐỦ PHIÊN BẢN (Point-in-Time Join) ──

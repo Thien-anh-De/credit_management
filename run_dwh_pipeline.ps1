@@ -1,4 +1,4 @@
-﻿# ============================================================
+# ============================================================
 # run_dwh_pipeline.ps1 - Chay toan bo Gold Layer Build Pipeline
 # ============================================================
 # Cach dung (tu thu muc goc project):
@@ -17,6 +17,20 @@ Write-Host "============================================================" -Foreg
 Write-Host "  CREDIT MANAGEMENT - DWH Gold Layer Build Pipeline" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Kiem tra dieu kien tien quyet tang Silver
+$silverFact  = "data\silver\fact_transactions"
+$silverUsers = "data\silver\dim_users"
+$silverCards = "data\silver\dim_cards"
+
+if (-not (Test-Path $silverUsers) -or -not (Test-Path $silverCards) -or -not (Test-Path $silverFact)) {
+    Write-Host "[!] Phat hien tang Silver chua san sang. Tu dong chay Batch ETL de chuan bi Silver..." -ForegroundColor Yellow
+    if (-not (Test-Path $silverUsers)) { python src/batch_jobs/process_users.py }
+    if (-not (Test-Path $silverCards)) { python src/batch_jobs/process_cards.py }
+    if (-not (Test-Path $silverFact))  { python src/batch_jobs/process_transactions.py --limit 20000 }
+    Write-Host "[OK] Da chuan bi day du du lieu Silver Parquet!" -ForegroundColor Green
+    Write-Host ""
+}
 
 $JOBS = @(
     "src/dwh_jobs/01_build_dim_date.py",
@@ -49,5 +63,5 @@ Write-Host ""
 python src/tests/07_dq_and_benchmark.py
 
 Write-Host ""
-Write-Host "  Report saved to: docs/milestone5_dq_benchmark_report.md" -ForegroundColor Green
+Write-Host "  Report saved to: docs/data_quality_benchmark_report.md" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan

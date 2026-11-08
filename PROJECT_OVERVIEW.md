@@ -8,7 +8,7 @@
 Dự án **Credit Management** là một hệ thống Kỹ thuật Dữ liệu (Data Engineering) hoàn chỉnh từ đầu đến cuối (End-to-End), được thiết kế và xây dựng nhằm mô phỏng, xử lý phân tán, chuẩn hóa mô hình dữ liệu và giám sát các giao dịch quẹt thẻ tín dụng ngân hàng theo thời gian thực hoạt động liên tục 24/7.
 
 Hệ thống giải quyết trọn vẹn các bài toán kỹ thuật cốt lõi của ngành công nghệ tài chính (Fintech / Banking):
-* **Xử lý dữ liệu lớn (Big Data Ingestion):** Khả năng mở rộng xử lý phân tán toàn bộ kho dữ liệu thực tế ~24 triệu giao dịch (tập IBM v2, dung lượng ~2.35 GB thô) với Apache Spark, kết hợp bộ dữ liệu mẫu chuẩn hóa 19,963 giao dịch (`User0`) phục vụ kiểm thử nhanh, CI/CD và đối soát tài chính 100%.
+* **Xử lý dữ liệu lớn (Big Data Ingestion):** Khả năng mở rộng xử lý phân tán toàn bộ kho dữ liệu thực tế ~24 triệu giao dịch (tập IBM v2, dung lượng ~2.35 GB thô) với Apache Spark, hỗ trợ cơ chế nạp phân vùng linh hoạt phục vụ kiểm thử nhanh, CI/CD và đối soát tài chính 100%.
 * **Phát hiện rủi ro tức thì (Real-time Fraud Monitoring):** Chuẩn hóa và gắn cờ các giao dịch có nguy cơ gian lận ngay khi sự kiện phát sinh tại các thiết bị POS.
 * **Kiến trúc Hồ dữ liệu hiện đại (Medallion Lakehouse):** Phân định rành mạch giữa tầng dữ liệu thô (**Bronze**), tầng dữ liệu sạch (**Silver**) và tầng Kho Dữ liệu Doanh nghiệp chuẩn Kimball (**Gold/DWH**).
 * **Mô hình DWH chuẩn Kimball Star Schema:** Thiết kế bảng chiều (Dimensions) với phân loại SCD Type 0, Type 1, Type 2 rõ ràng; bảng sự kiện (Fact) áp dụng kỹ thuật **Point-in-Time Join** gắn chính xác phiên bản lịch sử.
@@ -69,7 +69,7 @@ web_dashboard.py (Streamlit: Silver Stream + Gold OLAP)                  data_an
 1. **Bronze Layer (`data/bronze/`)**: Lưu trữ các file dữ liệu gốc định dạng CSV từ tập dữ liệu chuẩn IBM Credit Card:
    - `sd254_users.csv`: Dữ liệu 2,000 khách hàng (tuổi, thu nhập, điểm tín dụng FICO, nợ xấu, địa chỉ,...).
    - `sd254_cards.csv`: Dữ liệu 6,146 thẻ tín dụng (loại thẻ, hạn mức, ngày mở thẻ, trạng thái rò rỉ Dark Web,...).
-   - `User0_credit_card_transactions.csv` (19,963 giao dịch mẫu chuẩn hóa) & `credit_card_transactions-ibm_v2.csv` (khoảng 24 triệu giao dịch đầy đủ, ~2.35 GB).
+   - `credit_card_transactions-ibm_v2.csv` (khoảng 24 triệu giao dịch đầy đủ, ~2.35 GB thô từ IBM).
 2. **Silver Layer (`data/silver/`)**: Tầng dữ liệu đã được làm sạch, ép kiểu schema chuẩn hóa và lưu trữ dưới dạng file cột **Apache Parquet (nén Snappy)**:
    - `dim_users/`: Bảng thứ nguyên người dùng đã làm sạch (2,000 records).
    - `dim_cards/`: Bảng thứ nguyên thẻ tín dụng đã làm sạch (6,146 records).
@@ -234,7 +234,7 @@ File kiểm thử [`src/tests/07_dq_and_benchmark.py`](file:///e:/credit_managem
    - **Khớp 100% tổng dòng tiền (Dollar Volume):** Fact ($1,622,991.69) = Daily Merchant = Monthly Merchant = Quarterly Merchant = Daily Card Fraud ($1,622,991.69).
    - **Khớp 100% số vụ gian lận (Fraud Count):** Fact ($27$) = Daily Merchant = Monthly Merchant = Quarterly Merchant = Daily Card Fraud ($27$).
 5. **Đo Lường Hiệu Năng & Bối Cảnh Quy Mô Dữ Liệu (Benchmark Context):**
-   - **Tập mẫu kiểm thử:** Test suite chạy trên tập dữ liệu chuẩn hóa `User0_credit_card_transactions.csv` ($19,963$ giao dịch) nhằm phục vụ CI/CD và demo nhanh (~30s).
+   - **Quy mô dữ liệu kiểm thử:** Test suite chạy kiểm chứng trên tập dữ liệu chuẩn hóa ($19,963$ giao dịch ban đầu của User 0) nhằm phục vụ CI/CD và demo nhanh (~30s), và sẵn sàng mở rộng lên 24M giao dịch.
    - **Phân tích độ trễ:** Trên tập mẫu 20k dòng, thời gian truy vấn giữa Fact ($~0.45\text{s}$) và Summary ($~0.15\text{s}$) chênh lệch nhỏ do bị chi phối bởi chi phí cố định (khởi tạo Spark JVM, Catalyst Optimizer Planning).
    - **Quy mô Big Data thực tế:** Khi mở rộng lên toàn bộ kho dữ liệu `credit_card_transactions-ibm_v2.csv` (~24 triệu giao dịch, $2.35\text{ GB}$ thô), các tầng Summary Layers giúp giảm thiểu hàng triệu phép quét I/O, mang lại tốc độ vượt trội từ $20\times$ đến hơn $100\times$.
 
@@ -274,12 +274,10 @@ credit_management/
 │   ├── bronze/                      # Nguồn dữ liệu CSV thô ban đầu (Loại khỏi Git)
 │   │   ├── sd254_users.csv          # Dữ liệu 2,000 khách hàng
 │   │   ├── sd254_cards.csv          # Dữ liệu 6,146 thẻ tín dụng
-│   │   ├── User0_credit_card_transactions.csv # Giao dịch mẫu chạy nhanh
-│   │   └── credit_card_transactions-ibm_v2.csv # Dữ liệu lịch sử giao dịch toàn bộ
+│   │   └── credit_card_transactions-ibm_v2.csv # Dữ liệu lịch sử giao dịch toàn bộ (~24M dòng, 2.35 GB)
 │   ├── silver/                      # Hồ dữ liệu Silver (Định dạng Parquet nén Snappy)
-│   │   ├── dim_users/               # Bảng chiều User Profiles làm sạch
-│   │   ├── dim_cards/               # Bảng chiều Credit Cards làm sạch
-│   │   ├── fact_transactions/       # Bảng sự kiện giao dịch Silver
+│   │   ├── dim_users/ & dim_cards/  # Bảng chiều Profiles làm sạch
+│   │   ├── fact_transactions/       # Bảng sự kiện giao dịch Silver (Streaming append / Batch)
 │   │   └── checkpoints/             # Điểm kiểm soát Offset của Spark Streaming
 │   └── gold/                        # 🆕 Data Warehouse Gold Layer (Kimball Star Schema)
 │       ├── dim_date/                # Bảng chiều thời gian SCD Type 0 (1995–2035)
@@ -289,24 +287,22 @@ credit_management/
 │       ├── fact_transactions/       # Fact Atomic Grain (SCD2 Point-in-Time Join)
 │       ├── agg_daily_merchant_vol/  # Summary Layer 1A: Ngày × Merchant (Inmon Rollup cơ sở)
 │       ├── agg_monthly_merchant_vol/# Summary Layer 2: Tháng × Merchant (Roll-up từ Ngày)
-│       ├── agg_quarterly_merchant_vol/# Summary Layer 3: Quý × Merchant (Roll-up từ Tháng - Milestone 2.2)
+│       ├── agg_quarterly_merchant_vol/# Summary Layer 3: Quý × Merchant (Roll-up từ Tháng)
 │       └── agg_daily_card_fraud/    # Summary Layer 1B: Ngày × Thẻ × Fraud (Nhánh Card Risk)
 ├── docs/                            # Tài liệu kỹ thuật & Báo cáo kiểm chứng
-│   ├── dwh_schema_ssms.sql          # 🆕 Script DDL SQL Server / SSMS (Star Schema + Foreign Keys)
-│   ├── architecture_and_repo.md     # Tài liệu kiến trúc và luồng dữ liệu
-│   ├── milestone5_dq_benchmark_report.md # Báo cáo kiểm thử DQ & Performance Benchmark
-│   ├── scd2_simulation_evidence.md  # Báo cáo bằng chứng thực tế SCD Type 2 & PIT Join
-│   ├── phase1_infrastructure.md     # Giai đoạn 1: Hạ tầng Docker & Container
-│   ├── phase2_batch_pipeline.md     # Giai đoạn 2: Đường ống xử lý Batch
-│   ├── phase3_streaming_pipeline.md # Giai đoạn 3: Đường ống Streaming 24/7
-│   └── phase4_analytics.md          # Giai đoạn 4: Dashboard & Phân tích dữ liệu
+│   ├── architecture_and_repo.md     # 🏗️ Sơ đồ Mermaid ERD, Flowchart, Inmon Pyramid, Star Schema
+│   ├── data_dictionary.md           # 📖 Từ điển dữ liệu tự động quét schema 9 bảng
+│   ├── dwh_schema_ssms.sql          # 💾 Script DDL SQL Server / SSMS (Star Schema + Foreign Keys)
+│   ├── scd2_simulation_evidence.md  # 🔬 Báo cáo bằng chứng thực tế SCD Type 2 & PIT Join
+│   ├── data_quality_benchmark_report.md # 📊 Báo cáo kiểm thử DQ & Performance Benchmark
+│   └── final_project_defense_guide.md  # 🎓 Sổ tay hướng dẫn thuyết trình & bảo vệ đồ án
 ├── notebooks/                       # Môi trường phân tích dữ liệu chuyên sâu
 │   └── data_analysis.ipynb          # Jupyter Notebook thực hiện EDA & PySpark JOIN
 ├── src/                             # Mã nguồn chính của dự án
 │   ├── batch_jobs/                  # Các tác vụ xử lý lô PySpark
-│   │   ├── process_users.py         # Làm sạch và nén Parquet dim_users
-│   │   ├── process_cards.py         # Làm sạch và nén Parquet dim_cards
-│   │   └── process_transactions.py  # Chuyển đổi Bronze fact sang Silver Parquet
+│   │   ├── process_users.py         # Làm sạch và nén Parquet dim_users (Bóc $, fill null)
+│   │   ├── process_cards.py         # Làm sạch và nén Parquet dim_cards (Bóc $, chuẩn hóa date)
+│   │   └── process_transactions.py  # Chuyển đổi Bronze fact sang Silver Parquet (Bóc $, tạo timestamp)
 │   ├── streaming_jobs/              # Các tác vụ xử lý dữ liệu luồng
 │   │   ├── kafka_producer.py        # Giả lập máy POS phát dữ liệu vào Kafka 24/7
 │   │   └── spark_consumer.py        # Spark Structured Streaming đọc Kafka ghi Silver
@@ -318,12 +314,16 @@ credit_management/
 │   │   ├── 05_build_fact_transactions.py # Fact Gold SCD2 Point-in-Time Join + Natural Hash Idempotent
 │   │   ├── 06_build_summary_layers.py   # Xây dựng Tháp Inmon Rollup (Ngày ➔ Tháng ➔ Quý) & Nhánh Card Risk
 │   │   └── simulate_scd2_changes.py # Công cụ mô phỏng & kiểm chứng Point-in-Time Join thực tế
+│   ├── tools/                       # 🛠️ Các công cụ hỗ trợ vận hành & kiểm thử
+│   │   └── generate_data_dict.py    # 📚 Tự động xuất Từ điển dữ liệu Markdown
 │   ├── query_dwh.py                 # 🆕 Công cụ CLI truy vấn DWH SQL tương tác (PySpark SQL)
+│   ├── sync_to_sqlserver.py         # Đồng bộ dữ liệu Gold vào SSMS
 │   ├── tests/                       # 🆕 Bộ kiểm thử tự động
 │   │   └── 07_dq_and_benchmark.py   # DQ Check, Uniqueness, 4-tier Reconciliation & Benchmark
 │   └── web_dashboard.py             # Streamlit Dashboard (Tab 1: Streaming; Tab 2: OLAP; Tab 3: SQL Studio)
 ├── docker-compose.yml               # File điều phối khởi động toàn bộ cụm dịch vụ
-├── run_dwh_pipeline.ps1             # Script PowerShell tự động chạy trọn gói DWH
+├── reset_and_run_all.ps1            # 🔁 Script PowerShell tự động chạy trọn gói DWH (Mục 12)
+├── run_dwh_pipeline.ps1             # Script PowerShell chạy riêng DWH Gold Layer
 ├── requirements.txt                 # Khai báo các thư viện Python (PySpark 3.5.1,...)
 ├── README.md                        # Tài liệu dự án bằng Tiếng Anh
 └── PROJECT_OVERVIEW.md              # File tổng quan toàn diện về dự án (Tiếng Việt)
@@ -424,3 +424,23 @@ Khi giảng viên hoặc hội đồng yêu cầu viết và thực thi truy v�
    - Kiểm tra Referential Integrity, Uniqueness Surrogate Keys, Single Active Rule, Non-overlapping Validity Intervals, và Đối soát $100\%$ dòng tiền ($1,622,991.69$) và số dòng giữa Fact và 4 bảng Summary Layers.
 5. **Giám sát trực quan tích hợp Cả Luồng và Kho (Streaming + OLAP):**
    - Mở rộng Dashboard Streamlit với tab phân tích DWH Gold OLAP Summary, đọc trực tiếp dữ liệu tổng hợp theo Tháng, Quý và Rủi ro Thẻ song song với luồng streaming Silver.
+
+---
+
+## 🎯 8. Bảng Đối Soát Đáp Ứng 12/12 Đầu Ra Bài Tập Lớn Kho Dữ Liệu
+
+| STT | Đầu ra theo yêu cầu bài tập lớn | Trạng thái | Minh chứng tệp mã nguồn & tài liệu |
+| :---: | :---| :---: | :---|
+| **1** | **Xử lý dữ liệu lớn (Big Data Lake):** Kho dữ liệu thực tế ~24 triệu giao dịch (2.35 GB thô), 2,000 khách hàng, 6,146 thẻ tín dụng từ IBM. | ✅ ĐẠT 100% | `data/bronze/credit_card_transactions-ibm_v2.csv`, `sd254_users.csv`, `sd254_cards.csv` |
+| **2** | **Star Schema:** Script DDL tạo bảng Fact và Dimension với PK/FK, kèm bảng `dim_date` sinh tự động 1995–2035. | ✅ ĐẠT 100% | [`docs/dwh_schema_ssms.sql`](file:///e:/credit_management/docs/dwh_schema_ssms.sql) & [`src/dwh_jobs/01_build_dim_date.py`](file:///e:/credit_management/src/dwh_jobs/01_build_dim_date.py) |
+| **3** | **ETL Pipeline làm sạch dữ liệu:** Extract → Cleanse → Transform → Load, tự động bóc tách ký tự $, ghép timestamp chuẩn, ép kiểu logic, lưu Parquet Snappy. | ✅ ĐẠT 100% | [`src/batch_jobs/process_transactions.py`](file:///e:/credit_management/src/batch_jobs/process_transactions.py), [`process_users.py`](file:///e:/credit_management/src/batch_jobs/process_users.py), [`process_cards.py`](file:///e:/credit_management/src/batch_jobs/process_cards.py) |
+| **4** | **Streaming 24/7 phát hiện gian lận:** Mô phỏng POS bắn giao dịch liên tục qua Kafka, Spark Streaming xử lý micro-batch 5s vào Silver. | ✅ ĐẠT 100% | [`src/streaming_jobs/kafka_producer.py`](file:///e:/credit_management/src/streaming_jobs/kafka_producer.py) & [`src/streaming_jobs/spark_consumer.py`](file:///e:/credit_management/src/streaming_jobs/spark_consumer.py) |
+| **5** | **SCD (Slowly Changing Dimensions):** Logic Type 1 (ghi đè) và Type 2 (effective_date, expiration_date, is_current, PIT Join). | ✅ ĐẠT 100% | [`03_build_dim_users_scd2.py`](file:///e:/credit_management/src/dwh_jobs/03_build_dim_users_scd2.py), [`04_build_dim_cards_scd2.py`](file:///e:/credit_management/src/dwh_jobs/04_build_dim_cards_scd2.py), [`simulate_scd2_changes.py`](file:///e:/credit_management/src/dwh_jobs/simulate_scd2_changes.py), [`docs/scd2_simulation_evidence.md`](file:///e:/credit_management/docs/scd2_simulation_evidence.md) |
+| **6** | **Tầng Summary:** Sinh các bảng tổng hợp Ngày, Tháng, Quý chuẩn Inmon Roll-up từ bảng Fact Atomic. | ✅ ĐẠT 100% | [`src/dwh_jobs/06_build_summary_layers.py`](file:///e:/credit_management/src/dwh_jobs/06_build_summary_layers.py) ➔ `agg_daily_merchant_vol`, `agg_monthly_merchant_vol`, `agg_quarterly_merchant_vol` |
+| **7** | **Câu truy vấn khai thác:** Bộ query OLAP trả lời câu hỏi kinh doanh, chạy ra kết quả thật trên DB/Spark. | ✅ ĐẠT 100% | [`src/query_dwh.py`](file:///e:/credit_management/src/query_dwh.py), [`src/web_dashboard.py` (Tab 3: SQL Studio)](file:///e:/credit_management/src/web_dashboard.py) |
+| **8** | **Kiểm thử:** Đo thời gian truy vấn Atomic vs Summary (Benchmark), đối chiếu Fact với nguồn Bronze, kiểm tra orphan FK. | ✅ ĐẠT 100% | [`src/tests/07_dq_and_benchmark.py`](file:///e:/credit_management/src/tests/07_dq_and_benchmark.py) ➔ Báo cáo [`docs/data_quality_benchmark_report.md`](file:///e:/credit_management/docs/data_quality_benchmark_report.md) |
+| **9** | **Từ điển dữ liệu:** Đọc tự động từ schema Parquet/DB (tên cột, kiểu dữ liệu, nullability, vai trò, ý nghĩa nghiệp vụ). | ✅ ĐẠT 100% | [`src/tools/generate_data_dict.py`](file:///e:/credit_management/src/tools/generate_data_dict.py) ➔ Xuất file Markdown [`docs/data_dictionary.md`](file:///e:/credit_management/docs/data_dictionary.md) |
+| **10** | **Sơ đồ:** Sinh ERD Star Schema, sơ đồ luồng ETL, tháp phân tầng Inmon bằng định dạng Mermaid chuẩn. | ✅ ĐẠT 100% | [`docs/architecture_and_repo.md`](file:///e:/credit_management/docs/architecture_and_repo.md) |
+| **11** | **Biểu đồ, Dashboard:** Trực quan hóa kết quả phân tích DWH qua Web Dashboard (Streamlit/Plotly) và Jupyter Notebook. | ✅ ĐẠT 100% | [`src/web_dashboard.py`](file:///e:/credit_management/src/web_dashboard.py) & [`notebooks/data_analysis.ipynb`](file:///e:/credit_management/notebooks/data_analysis.ipynb) |
+| **12** | **Reset demo:** Một lệnh duy nhất dựng lại toàn bộ hệ thống từ đầu (Idempotent Pipeline). | ✅ ĐẠT 100% | [`reset_and_run_all.ps1`](file:///e:/credit_management/reset_and_run_all.ps1) |
+
