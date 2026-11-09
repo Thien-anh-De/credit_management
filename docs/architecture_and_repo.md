@@ -303,7 +303,7 @@ credit_management/
 │   ├── architecture_and_repo.md     # 🏛️ Bản thiết kế kiến trúc toàn diện (Mermaid, Star Schema, ERD)
 │   ├── data_dictionary.md           # 📖 Từ điển dữ liệu tự động quét 9 bảng
 │   ├── dwh_schema_ssms.sql          # 💾 Script DDL SQL Server / SSMS (PK/FK/Index)
-│   ├── scd2_simulation_evidence.md  # 🔬 Bằng chứng thực nghiệm SCD Type 2 & Point-in-Time Join
+│   ├── demo_scd2.sql                # 🔬 Script demo trực tiếp SCD Type 2 & Point-in-Time Join trong SSMS
 │   ├── data_quality_benchmark_report.md # 📊 Báo cáo kiểm thử DQ & Performance Benchmark
 │   └── final_project_defense_guide.md  # 🎓 Sổ tay hướng dẫn thuyết trình & bảo vệ đồ án
 ├── src/
@@ -319,8 +319,7 @@ credit_management/
 │   │   ├── 03_build_dim_users_scd2.py
 │   │   ├── 04_build_dim_cards_scd2.py
 │   │   ├── 05_build_fact_transactions.py
-│   │   ├── 06_build_summary_layers.py
-│   │   └── simulate_scd2_changes.py             # Công cụ mô phỏng biến động SCD2
+│   │   └── 06_build_summary_layers.py
 │   ├── tools/
 │   │   └── generate_data_dict.py                # Tự động xuất Từ điển dữ liệu Markdown
 │   ├── tests/

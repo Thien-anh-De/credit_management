@@ -45,7 +45,7 @@ dim_users, dim_cards & fact_transactions                                        
                                                 │
                                                 ▼
                       [ TẦNG GOLD: DATA WAREHOUSE KIMBALL STAR SCHEMA ]
-                 (Bộ script dwh_jobs/ 01 -> 06 + simulate_scd2_changes.py)
+                 (Bộ script dwh_jobs/ 01 -> 06 + docs/demo_scd2.sql)
                         │                                       │
         ┌───────────────┴───────────────┐                       │
         ▼                               ▼                       ▼
@@ -102,28 +102,22 @@ Hệ thống phân định rõ ràng và áp dụng đúng đắn 3 kỹ thuật
 
 ---
 
-### 3.2. Chứng Minh SCD Type 2 Hoạt Động Bằng Dữ Liệu Thực Tế (`simulate_scd2_changes.py`)
-Do dữ liệu gốc CSV là ảnh chụp tĩnh (snapshot), để trả lời trọn vẹn câu hỏi phản biện của Giảng viên: *“Hệ thống SCD Type 2 đã chạy thật trên dữ liệu chưa?”*, dự án đã xây dựng công cụ mô phỏng và kiểm chứng chuyên sâu:
-* **Tập lệnh:** [`src/dwh_jobs/simulate_scd2_changes.py`](file:///e:/credit_management/src/dwh_jobs/simulate_scd2_changes.py)
-* **Tham số hóa ngày hiệu lực (Deterministic Parameter):** Script tiếp nhận tham số `--effective-date` với giá trị mặc định là **`2015-06-01`** (nằm ngay giữa dải lịch sử giao dịch IBM 2002–2020 thay vì dùng `today()` biến động). Điều này đảm bảo kết quả demo luôn tái lập và ổn định 100%.
+### 3.2. Chứng Minh SCD Type 2 Hoạt Động Bằng Kịch Bản SQL Trực Tiếp (`docs/demo_scd2.sql`)
+Do dữ liệu gốc CSV là ảnh chụp tĩnh (snapshot), để trả lời trọn vẹn câu hỏi phản biện của Giảng viên: *“Hệ thống SCD Type 2 đã chạy thật trên dữ liệu chưa?”*, dự án đã biên soạn sẵn kịch bản SQL thực thi từng bước trong SSMS:
+* **Tập lệnh:** [`docs/demo_scd2.sql`](file:///e:/credit_management/docs/demo_scd2.sql)
+* **Kịch bản thao tác tay:** Bôi đen từng khối SQL và bấm `F5` để đóng phiên bản cũ, mở phiên bản mới và kiểm tra phân tách giao dịch Point-in-Time Join.
+* **Mốc thời gian áp dụng:** Sử dụng mốc **`2015-06-01`** (nằm ngay giữa dải lịch sử giao dịch IBM 2002–2020).
 * **Kịch bản thực tế:**
   1. Thẻ `0_0`: Khách hàng được xét duyệt nâng hạn mức từ `$24,295.00` lên `$25,000.00`.
-  2. Thẻ `0_1`: Trung tâm an ninh mạng phát hiện thẻ bị rao bán trên chợ đen (`card_on_dark_web` chuyển từ `False` sang `True`).
-  3. Thẻ `0_2`: Hạn mức được điều chỉnh về `$18,500.00` và gắn nhãn cảnh báo rủi ro Dark Web.
+  2. Dùng bảng tạm `#t` nhân bản nhanh bản ghi mà không cần nhớ thuộc lòng 17 tên cột.
 * **Kết quả thực tế chứng minh đa phiên bản trong Gold (kết hợp ngày mở thẻ thực tế và mốc 2015-06-01):**
 
 | Card Key | Surrogate Key (`card_sk`) | Credit Limit | Card On Dark Web | Effective Date | Expiration Date | Trạng thái Version |
 |:---|:---|---:|:---|:---|:---|:---|
 | `0_0` | `1` | $24,295.00 | NO | `2002-09-01` | `2015-06-01` | 🔴 FALSE (Bản ghi cũ đã đóng) |
 | `0_0` | `6147` | $25,000.00 | NO | `2015-06-01` | `9999-12-31` | 🟢 TRUE (Phiên bản mới đang mở) |
-| `0_1` | `2` | $21,968.00 | NO | `2008-01-01` | `2015-06-01` | 🔴 FALSE (Bản ghi cũ an toàn) |
-| `0_1` | `6148` | $21,968.00 | 🚨 YES | `2015-06-01` | `9999-12-31` | 🟢 TRUE (Bản ghi cảnh báo rủi ro) |
-| `0_2` | `3` | $46,414.00 | NO | `2004-03-01` | `2015-06-01` | 🔴 FALSE (Bản ghi cũ) |
-| `0_2` | `6149` | $18,500.00 | 🚨 YES | `2015-06-01` | `9999-12-31` | 🟢 TRUE (Phiên bản mới) |
 
-* Báo cáo kiểm chứng đầy đủ được xuất tự động tại: [`docs/scd2_simulation_evidence.md`](file:///e:/credit_management/docs/scd2_simulation_evidence.md).
-* **Bảo toàn lịch sử khi chạy lại pipeline:** Khi chạy lại `run_dwh_pipeline.ps1` hoặc các Job 03/04, hệ thống so sánh mã băm MD5 và giữ nguyên các bản ghi đã đóng, bảo đảm SCD2 không bị ghi đè mất.
-* Hỗ trợ cờ `--reset` để đưa hệ thống về trạng thái ban đầu bất cứ lúc nào.
+* Hỗ trợ khối lệnh SQL hoàn tác (Reset) để đưa hệ thống về trạng thái ban đầu bất cứ lúc nào.
 
 ---
 
@@ -293,7 +287,7 @@ credit_management/
 │   ├── architecture_and_repo.md     # 🏗️ Sơ đồ Mermaid ERD, Flowchart, Inmon Pyramid, Star Schema
 │   ├── data_dictionary.md           # 📖 Từ điển dữ liệu tự động quét schema 9 bảng
 │   ├── dwh_schema_ssms.sql          # 💾 Script DDL SQL Server / SSMS (Star Schema + Foreign Keys)
-│   ├── scd2_simulation_evidence.md  # 🔬 Báo cáo bằng chứng thực tế SCD Type 2 & PIT Join
+│   ├── demo_scd2.sql                # 🔬 Script demo trực tiếp SCD Type 2 & PIT Join trong SSMS
 │   ├── data_quality_benchmark_report.md # 📊 Báo cáo kiểm thử DQ & Performance Benchmark
 │   └── final_project_defense_guide.md  # 🎓 Sổ tay hướng dẫn thuyết trình & bảo vệ đồ án
 ├── notebooks/                       # Môi trường phân tích dữ liệu chuyên sâu
@@ -312,8 +306,7 @@ credit_management/
 │   │   ├── 03_build_dim_users_scd2.py  # SCD Type 2 cho dim_users (sentinel date 1970-01-01)
 │   │   ├── 04_build_dim_cards_scd2.py  # SCD Type 2 cho dim_cards (acct_open_date + bảo toàn rerun)
 │   │   ├── 05_build_fact_transactions.py # Fact Gold SCD2 Point-in-Time Join + Natural Hash Idempotent
-│   │   ├── 06_build_summary_layers.py   # Xây dựng Tháp Inmon Rollup (Ngày ➔ Tháng ➔ Quý) & Nhánh Card Risk
-│   │   └── simulate_scd2_changes.py # Công cụ mô phỏng & kiểm chứng Point-in-Time Join thực tế
+│   │   └── 06_build_summary_layers.py   # Xây dựng Tháp Inmon Rollup (Ngày ➔ Tháng ➔ Quý) & Nhánh Card Risk
 │   ├── tools/                       # 🛠️ Các công cụ hỗ trợ vận hành & kiểm thử
 │   │   └── generate_data_dict.py    # 📚 Tự động xuất Từ điển dữ liệu Markdown
 │   ├── query_dwh.py                 # 🆕 Công cụ CLI truy vấn DWH SQL tương tác (PySpark SQL)
@@ -364,18 +357,11 @@ Kịch bản tự động thực hiện tuần tự:
 6. `06_build_summary_layers.py`: Xây dựng Tháp Inmon Rollup (Ngày ➔ Tháng ➔ Quý) và Nhánh Card Risk.
 7. `07_dq_and_benchmark.py`: Chạy toàn bộ 5 bộ kiểm thử Data Quality, Đối soát 4 tầng & Benchmark tốc độ truy vấn.
 
-### Cách 2: Chạy kiểm chứng mô phỏng SCD Type 2 & Point-in-Time Join thực tế
+### Cách 2: Chạy kiểm chứng mô phỏng SCD Type 2 & Point-in-Time Join thực tế trong SSMS
 Để chứng minh cơ chế SCD Type 2 và Point-in-Time Join chia tách giao dịch thật sự giữa các phiên bản:
-```bash
-# 1. Chạy mô phỏng sự kiện nâng hạn mức và rò rỉ Dark Web (mốc cố định 2015-06-01)
-python src/dwh_jobs/simulate_scd2_changes.py --effective-date 2015-06-01
-
-# 2. Xem trực tiếp các bản ghi đa phiên bản và bằng chứng chia tách giao dịch trên màn hình
-python src/dwh_jobs/simulate_scd2_changes.py --show
-
-# 3. Khôi phục về dữ liệu ban đầu sau khi trình chiếu
-python src/dwh_jobs/simulate_scd2_changes.py --reset
-```
+1. Mở SQL Server Management Studio (SSMS), mở file [`docs/demo_scd2.sql`](file:///e:/credit_management/docs/demo_scd2.sql).
+2. Bôi đen từng khối SQL (Khối 1 -> Khối 4) và bấm `F5` (Execute).
+3. Bôi đen Khối 5 để hoàn tác (Reset) đưa dữ liệu về nguyên trạng ban đầu.
 
 ### Cách 3: Khởi chạy Cụm Docker Streaming 24/7 & Web Dashboard
 ```bash
@@ -435,7 +421,7 @@ Khi giảng viên hoặc hội đồng yêu cầu viết và thực thi truy v�
 | **2** | **Star Schema:** Script DDL tạo bảng Fact và Dimension với PK/FK, kèm bảng `dim_date` sinh tự động 1995–2035. | ✅ ĐẠT 100% | [`docs/dwh_schema_ssms.sql`](file:///e:/credit_management/docs/dwh_schema_ssms.sql) & [`src/dwh_jobs/01_build_dim_date.py`](file:///e:/credit_management/src/dwh_jobs/01_build_dim_date.py) |
 | **3** | **ETL Pipeline làm sạch dữ liệu:** Extract → Cleanse → Transform → Load, tự động bóc tách ký tự $, ghép timestamp chuẩn, ép kiểu logic, lưu Parquet Snappy. | ✅ ĐẠT 100% | [`src/batch_jobs/process_transactions.py`](file:///e:/credit_management/src/batch_jobs/process_transactions.py), [`process_users.py`](file:///e:/credit_management/src/batch_jobs/process_users.py), [`process_cards.py`](file:///e:/credit_management/src/batch_jobs/process_cards.py) |
 | **4** | **Streaming 24/7 phát hiện gian lận:** Mô phỏng POS bắn giao dịch liên tục qua Kafka, Spark Streaming xử lý micro-batch 5s vào Silver. | ✅ ĐẠT 100% | [`src/streaming_jobs/kafka_producer.py`](file:///e:/credit_management/src/streaming_jobs/kafka_producer.py) & [`src/streaming_jobs/spark_consumer.py`](file:///e:/credit_management/src/streaming_jobs/spark_consumer.py) |
-| **5** | **SCD (Slowly Changing Dimensions):** Logic Type 1 (ghi đè) và Type 2 (effective_date, expiration_date, is_current, PIT Join). | ✅ ĐẠT 100% | [`03_build_dim_users_scd2.py`](file:///e:/credit_management/src/dwh_jobs/03_build_dim_users_scd2.py), [`04_build_dim_cards_scd2.py`](file:///e:/credit_management/src/dwh_jobs/04_build_dim_cards_scd2.py), [`simulate_scd2_changes.py`](file:///e:/credit_management/src/dwh_jobs/simulate_scd2_changes.py), [`docs/scd2_simulation_evidence.md`](file:///e:/credit_management/docs/scd2_simulation_evidence.md) |
+| **5** | **SCD (Slowly Changing Dimensions):** Logic Type 1 (ghi đè) và Type 2 (effective_date, expiration_date, is_current, PIT Join). | ✅ ĐẠT 100% | [`03_build_dim_users_scd2.py`](file:///e:/credit_management/src/dwh_jobs/03_build_dim_users_scd2.py), [`04_build_dim_cards_scd2.py`](file:///e:/credit_management/src/dwh_jobs/04_build_dim_cards_scd2.py), [`docs/demo_scd2.sql`](file:///e:/credit_management/docs/demo_scd2.sql) |
 | **6** | **Tầng Summary:** Sinh các bảng tổng hợp Ngày, Tháng, Quý chuẩn Inmon Roll-up từ bảng Fact Atomic. | ✅ ĐẠT 100% | [`src/dwh_jobs/06_build_summary_layers.py`](file:///e:/credit_management/src/dwh_jobs/06_build_summary_layers.py) ➔ `agg_daily_merchant_vol`, `agg_monthly_merchant_vol`, `agg_quarterly_merchant_vol` |
 | **7** | **Câu truy vấn khai thác:** Bộ query OLAP trả lời câu hỏi kinh doanh, chạy ra kết quả thật trên DB/Spark. | ✅ ĐẠT 100% | [`src/query_dwh.py`](file:///e:/credit_management/src/query_dwh.py), [`src/web_dashboard.py` (Tab 3: SQL Studio)](file:///e:/credit_management/src/web_dashboard.py) |
 | **8** | **Kiểm thử:** Đo thời gian truy vấn Atomic vs Summary (Benchmark), đối chiếu Fact với nguồn Bronze, kiểm tra orphan FK. | ✅ ĐẠT 100% | [`src/tests/07_dq_and_benchmark.py`](file:///e:/credit_management/src/tests/07_dq_and_benchmark.py) ➔ Báo cáo [`docs/data_quality_benchmark_report.md`](file:///e:/credit_management/docs/data_quality_benchmark_report.md) |

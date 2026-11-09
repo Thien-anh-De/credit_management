@@ -25,7 +25,7 @@ Khi Giảng viên hỏi: *"Đồ án của nhóm đã làm được những gì 
 | **2** | **Star Schema DDL & dim_date tự động** | [`docs/dwh_schema_ssms.sql`](file:///e:/credit_management/docs/dwh_schema_ssms.sql)<br>[`01_build_dim_date.py`](file:///e:/credit_management/src/dwh_jobs/01_build_dim_date.py) | DDL SQL Server với PK/FK/Index. `dim_date` sinh tự động 14,975 ngày từ 1995–2035 |
 | **3** | **ETL Pipeline làm sạch dữ liệu thô** | [`src/batch_jobs/process_transactions.py`](file:///e:/credit_management/src/batch_jobs/process_transactions.py)<br>[`process_users.py`](file:///e:/credit_management/src/batch_jobs/process_users.py) | Bóc tách ký tự `$`, dấu phẩy, ghép 4 cột rời thành timestamp chuẩn, ép kiểu Parquet Snappy |
 | **4** | **Streaming 24/7 phát hiện gian lận** | [`kafka_producer.py`](file:///e:/credit_management/src/streaming_jobs/kafka_producer.py)<br>[`spark_consumer.py`](file:///e:/credit_management/src/streaming_jobs/spark_consumer.py) | Máy POS phát giao dịch liên tục qua Kafka, Spark Streaming xử lý micro-batch 5s vào Silver |
-| **5** | **SCD Type 1 & Type 2 (PIT Join)** | [`03_build_dim_users_scd2.py`](file:///e:/credit_management/src/dwh_jobs/03_build_dim_users_scd2.py)<br>[`04_build_dim_cards_scd2.py`](file:///e:/credit_management/src/dwh_jobs/04_build_dim_cards_scd2.py)<br>[`simulate_scd2_changes.py`](file:///e:/credit_management/src/dwh_jobs/simulate_scd2_changes.py) | SCD1 Merchant, SCD2 User/Card. Bằng chứng mốc 2015-06-01 tách đúng 2 `card_sk`, 0 orphan |
+| **5** | **SCD Type 1 & Type 2 (PIT Join)** | [`03_build_dim_users_scd2.py`](file:///e:/credit_management/src/dwh_jobs/03_build_dim_users_scd2.py)<br>[`04_build_dim_cards_scd2.py`](file:///e:/credit_management/src/dwh_jobs/04_build_dim_cards_scd2.py)<br>[`docs/demo_scd2.sql`](file:///e:/credit_management/docs/demo_scd2.sql) | SCD1 Merchant, SCD2 User/Card. Script demo SSMS mốc 2015-06-01 tách đúng 2 `card_sk`, 0 orphan |
 | **6** | **Tầng Summary (Inmon Chapter 3)** | [`src/dwh_jobs/06_build_summary_layers.py`](file:///e:/credit_management/src/dwh_jobs/06_build_summary_layers.py) | 4 bảng: Ngày (`agg_daily_merchant_vol`) ➔ Tháng (`agg_monthly_merchant_vol`) ➔ Quý (`agg_quarterly_merchant_vol`) + Nhánh Thẻ |
 | **7** | **Bộ câu truy vấn nghiệp vụ OLAP** | [`src/query_dwh.py`](file:///e:/credit_management/src/query_dwh.py)<br>Web Dashboard (Tab 3: SQL Studio) | 5 câu truy vấn mẫu ANSI SQL chạy kết quả thật trên Parquet / SQLite / Spark |
 | **8** | **Kiểm thử Data Quality & Benchmark** | [`src/tests/07_dq_and_benchmark.py`](file:///e:/credit_management/src/tests/07_dq_and_benchmark.py)<br>[`docs/data_quality_benchmark_report.md`](file:///e:/credit_management/docs/data_quality_benchmark_report.md) | Đối soát Nguồn CSV vs Fact Gold = 100% Khớp (\$1,622,991.69). 0 Orphan FK. Đo speedup |
@@ -69,15 +69,16 @@ Khi Giảng viên hỏi: *"Đồ án của nhóm đã làm được những gì 
 ---
 
 ### ⏱️ Phút 4:30 – 6:00 | Bằng chứng thực tế SCD Type 2 & Point-in-Time Join
-* **Thao tác:** Mở terminal gõ:
-  ```bash
-  python src/dwh_jobs/simulate_scd2_changes.py --show
-  ```
+* **Thao tác:** Mở SSMS, mở file [`docs/demo_scd2.sql`](file:///e:/credit_management/docs/demo_scd2.sql), bôi đen và bấm `F5` thực thi từng khối:
+  1. Khối 1: Xem thẻ `0_0` ở trạng thái ban đầu (chỉ 1 dòng).
+  2. Khối 2: Thực hiện biến động (nâng hạn mức ngày 2015-06-01 bằng bảng tạm `#t`).
+  3. Khối 3: Xem kết quả `dim_cards` sinh 2 phiên bản cũ - mới nối tiếp nhau.
+  4. Khối 4: Xem giao dịch trong `fact_transactions` tự động phân tách theo đúng khoảng thời gian.
 * **Thuyết minh:**
   > *"Về lịch sử biến động (SCD):
   > - Bảng `dim_merchant` áp dụng SCD Type 1 (ghi đè).
   > - Bảng `dim_cards` và `dim_users` áp dụng SCD Type 2 để theo dõi biến động hạn mức và cảnh báo rò rỉ Dark Web.
-  > - Trên màn hình là bằng chứng Point-in-Time Join: Cùng một thẻ `0_0`, các giao dịch phát sinh trước mốc `2015-06-01` gắn chính xác vào `card_sk = 1` (hạn mức cũ \$24,295), các giao dịch sau mốc này gắn vào `card_sk = 6147` (hạn mức mới \$25,000). Toàn bộ 19,963 giao dịch khớp đúng cửa sổ thời gian 100%, hoàn toàn không có orphan record."*
+  > - Trên màn hình SSMS là bằng chứng Point-in-Time Join: Cùng một thẻ `0_0`, các giao dịch phát sinh trước mốc `2015-06-01` gắn chính xác vào `card_sk = 1` (hạn mức cũ \$24,295), các giao dịch sau mốc này gắn vào `card_sk = 6147` (hạn mức mới \$25,000). Toàn bộ giao dịch khớp đúng cửa sổ thời gian 100%, hoàn toàn không có orphan record."*
 
 ---
 
@@ -112,7 +113,7 @@ Khi Giảng viên hỏi: *"Đồ án của nhóm đã làm được những gì 
 4. **Dữ liệu stream từ POS dừng ở Silver hay chảy vào Gold?**
    * *Đáp:* Dừng ở Silver để phục vụ giám sát tức thì 24/7 (Real-time Alerting). Định kỳ (Batch ELT), dữ liệu sạch mới được nạp vào Gold để tính toán SCD2 và cuộn tháp Inmon, tránh làm treo kho dữ liệu khi báo cáo.
 5. **Làm sao chứng minh SCD Type 2 chạy thật?**
-   * *Đáp:* Chạy `python src/dwh_jobs/simulate_scd2_changes.py --show`. Cùng một thẻ `0_0`, giao dịch được chia làm 2 giai đoạn gắn đúng 2 `card_sk` khác nhau dựa trên mốc ngày hiệu lực 2015-06-01.
+   * *Đáp:* Mở SSMS chạy file `docs/demo_scd2.sql`. Cùng một thẻ `0_0`, giao dịch được chia làm 2 giai đoạn gắn đúng 2 `card_sk` khác nhau dựa trên mốc ngày hiệu lực 2015-06-01.
 6. **Làm sao kiểm soát dữ liệu không bị thất thoát khi ETL?**
    * *Đáp:* Hệ thống có bảng Audit Log ghi nhận đẳng thức bảo toàn: $\text{Số dòng đọc} = \text{Số dòng lỗi bị cách ly} + \text{Số dòng nạp sạch}$ ($2,060 = 291 + 1,769$ dòng, khớp 100%).
 
@@ -127,8 +128,8 @@ Khi Giảng viên hỏi: *"Đồ án của nhóm đã làm được những gì 
 # 2. Chạy test suite kiểm thử & đối soát dòng tiền:
 python src/tests/07_dq_and_benchmark.py
 
-# 3. Xem bằng chứng đa phiên bản SCD Type 2:
-python src/dwh_jobs/simulate_scd2_changes.py --show
+# 3. Demo SCD Type 2 bằng SQL thuần:
+# Mở SSMS và thực thi từng khối trong docs/demo_scd2.sql
 
 # 4. Chạy truy vấn SQL trực tiếp từ Terminal:
 python src/query_dwh.py 1    # Rollup Tháng -> Quý

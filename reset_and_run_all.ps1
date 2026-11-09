@@ -57,6 +57,6 @@ Write-Host "[SUCCESS] TOAN BO QUY TRINH MEDALLION VA DWH DA DUOC DUNG LAI THANH 
 Write-Host "-> 1. Xem So do Kien truc   : docs/architecture_and_repo.md" -ForegroundColor Yellow
 Write-Host "-> 2. Xem Bao cao DQ & Bench: docs/data_quality_benchmark_report.md" -ForegroundColor Yellow
 Write-Host "-> 3. Mo Web Dashboard      : streamlit run src/web_dashboard.py" -ForegroundColor Yellow
-Write-Host "-> 4. Mo phong SCD Type 2   : python src/dwh_jobs/simulate_scd2_changes.py --effective-date 2015-06-01" -ForegroundColor Yellow
+Write-Host "-> 4. Demo SCD Type 2       : Mo SSMS va chay file docs/demo_scd2.sql" -ForegroundColor Yellow
 Write-Host "-> 5. Truy van DWH OLAP     : python src/query_dwh.py" -ForegroundColor Yellow
 Write-Host "================================================================================" -ForegroundColor Green

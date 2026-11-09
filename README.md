@@ -85,7 +85,7 @@ credit_management/
 │   ├── architecture_and_repo.md # System architecture, Mermaid ERD & Flowcharts
 │   ├── data_dictionary.md       # Automated data dictionary of 11 tables
 │   ├── dwh_schema_ssms.sql      # T-SQL DDL for SQL Server / SSMS Star Schema
-│   ├── scd2_simulation_evidence.md # SCD Type 2 Point-in-Time Join verification
+│   ├── demo_scd2.sql            # SQL Server manual script for live SCD Type 2 demo
 │   ├── data_quality_benchmark_report.md # Data quality & query performance report
 │   └── final_project_defense_guide.md # Presentation & defense walkthrough guide
 ├── src/
@@ -157,6 +157,6 @@ Comprehensive technical documentation and reports are available in the `docs/` f
 - 🏛️ [Architecture & DWH Blueprint (Sơ đồ ERD, Luồng ETL & Tháp Inmon)](docs/architecture_and_repo.md)
 - 📖 [Data Dictionary (Từ điển dữ liệu 11 bảng)](docs/data_dictionary.md)
 - 💾 [SSMS DDL Script (Star Schema T-SQL)](docs/dwh_schema_ssms.sql)
-- 🔬 [SCD Type 2 Simulation Evidence (Kiểm chứng Point-in-Time Join)](docs/scd2_simulation_evidence.md)
+- 🔬 [SCD Type 2 Manual Demo Script (Mã SQL demo trực tiếp trên SSMS)](docs/demo_scd2.sql)
 - 📊 [Data Quality & Benchmark Report](docs/data_quality_benchmark_report.md)
 - 🎓 [Project Defense Guide (Sổ tay bảo vệ đồ án)](docs/final_project_defense_guide.md)

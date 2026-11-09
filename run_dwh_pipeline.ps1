@@ -37,7 +37,7 @@ foreach ($job in $JOBS) {
     Write-Host "[$step/6] Chay $job..."
     python $job
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "[ERROR] Loi tai buoc $step: $job" -ForegroundColor Red
+        Write-Host "[ERROR] Loi tai buoc ${step}: $job" -ForegroundColor Red
         exit 1
     }
     $step++
