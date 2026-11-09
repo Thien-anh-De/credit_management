@@ -1,8 +1,5 @@
 # ============================================================
-# run_dwh_pipeline.ps1 - Chay toan bo Gold Layer Build Pipeline
-# ============================================================
-# Cach dung (tu thu muc goc project):
-#   .\run_dwh_pipeline.ps1
+# run_dwh_pipeline.ps1 - Pipeline xay dung DWH Gold Layer
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -12,24 +9,17 @@ if (-not $env:HADOOP_HOME -and (Test-Path "C:\hadoop")) {
     $env:PATH = "C:\hadoop\bin;$env:PATH"
 }
 
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  CREDIT MANAGEMENT - DWH Gold Layer Build Pipeline" -ForegroundColor Cyan
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
-
-# Kiem tra dieu kien tien quyet tang Silver
+# Kiem tra tang Silver, tu dong tao neu thieu
 $silverFact  = "data\silver\fact_transactions"
 $silverUsers = "data\silver\dim_users"
 $silverCards = "data\silver\dim_cards"
 
 if (-not (Test-Path $silverUsers) -or -not (Test-Path $silverCards) -or -not (Test-Path $silverFact)) {
-    Write-Host "[!] Phat hien tang Silver chua san sang. Tu dong chay Batch ETL de chuan bi Silver..." -ForegroundColor Yellow
+    Write-Host "[INFO] Tang Silver chua co du lieu. Dang chay batch xu ly..."
     if (-not (Test-Path $silverUsers)) { python src/batch_jobs/process_users.py }
     if (-not (Test-Path $silverCards)) { python src/batch_jobs/process_cards.py }
     if (-not (Test-Path $silverFact))  { python src/batch_jobs/process_transactions.py --limit 20000 }
-    Write-Host "[OK] Da chuan bi day du du lieu Silver Parquet!" -ForegroundColor Green
-    Write-Host ""
+    Write-Host "[INFO] Da chuan bi xong tang Silver."
 }
 
 $JOBS = @(
@@ -41,27 +31,16 @@ $JOBS = @(
     "src/dwh_jobs/06_build_summary_layers.py"
 )
 
+Write-Host "[INFO] Bat dau xay dung Gold Layer..."
 $step = 1
 foreach ($job in $JOBS) {
-    Write-Host "[$step/6] Running: $job" -ForegroundColor Yellow
+    Write-Host "[$step/6] Chay $job..."
     python $job
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "FAILED at step $step - $job" -ForegroundColor Red
+        Write-Host "[ERROR] Loi tai buoc $step: $job" -ForegroundColor Red
         exit 1
     }
-    Write-Host "Step $step completed successfully" -ForegroundColor Green
-    Write-Host ""
     $step++
 }
 
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  Gold Layer BUILD COMPLETE!" -ForegroundColor Green
-Write-Host "  Running Data Quality and Benchmark Test..." -ForegroundColor Yellow
-Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host ""
-
-python src/tests/07_dq_and_benchmark.py
-
-Write-Host ""
-Write-Host "  Report saved to: docs/data_quality_benchmark_report.md" -ForegroundColor Green
-Write-Host "============================================================" -ForegroundColor Cyan
+Write-Host "[INFO] Hoan tat xay dung toan bo Gold Layer."

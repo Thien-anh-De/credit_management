@@ -4,9 +4,11 @@
 *.crc
 _SUCCESS
 data/**/_SUCCESS
-data/silver/*_backup/
 data/**/._SUCCESS.crc
 data/**/.*.crc
+data/**/_spark_metadata/
+data/**/checkpoints/
+data/silver/*_backup/
 
 
 # Python / Virtual Environment

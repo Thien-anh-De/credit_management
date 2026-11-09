@@ -75,7 +75,7 @@ def main():
     dim_merchant = fact.select(*select_exprs) \
         .dropDuplicates(["merchant_name", "merchant_city", "merchant_state", "mcc"]) \
         .na.fill({"merchant_name": "Unknown", "merchant_city": "Unknown",
-                  "merchant_state": "XX", "mcc": "0000"}) \
+                  "merchant_state": "Unknown", "mcc": "0000"}) \
         .withColumn("merchant_sk", (monotonically_increasing_id() + 1).cast(LongType())) \
         .select("merchant_sk", "merchant_name", "merchant_city", "merchant_state", "mcc")
 

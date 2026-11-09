@@ -48,6 +48,10 @@ try {
     Write-Host "[!] Bo qua buoc sync SSMS neu dich vu SQL Server chua khoi dong." -ForegroundColor Yellow
 }
 
+# 6. Chay kiem thu toan dien Data Quality & Performance Benchmark
+Write-Host "`n[*] BUOC 4: CHAY BO KIEM THU DATA QUALITY & QUERY BENCHMARK..." -ForegroundColor Cyan
+python src\tests\07_dq_and_benchmark.py
+
 Write-Host "`n================================================================================" -ForegroundColor Green
 Write-Host "[SUCCESS] TOAN BO QUY TRINH MEDALLION VA DWH DA DUOC DUNG LAI THANH CONG TU DAU!" -ForegroundColor Green
 Write-Host "-> 1. Xem So do Kien truc   : docs/architecture_and_repo.md" -ForegroundColor Yellow

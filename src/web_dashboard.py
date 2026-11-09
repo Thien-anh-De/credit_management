@@ -1,5 +1,4 @@
 import os
-import glob
 import time
 import sqlite3
 import pandas as pd
@@ -8,53 +7,86 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# CẤU HÌNH TRANG WEB
+# 1. CẤU HÌNH TRANG WEB CHUẨN DOANH NGHIỆP
 st.set_page_config(
-    page_title="Credit Management & DWH Analytics",
+    page_title="Credit Management & DWH Platform",
     page_icon="💳",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Thêm CSS tùy chỉnh giao diện Dark Mode Glassmorphism cao cấp
+# 2. CSS GIAO DIỆN HIỆN ĐẠI (DARK FINTECH THEME - KHÔNG CHỚP NHÁY)
 st.markdown("""
 <style>
-    .main {
-        background-color: #0E1117;
-        color: #FAFAFA;
+    /* Nền chính */
+    .stApp {
+        background-color: #0B0E14;
+        color: #E2E8F0;
     }
+    
+    /* Ẩn bớt padding thừa */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Thẻ chỉ số KPI cao cấp */
     .metric-card {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        backdrop-filter: blur(4px);
+        background: #151A23;
+        border: 1px solid #232B3B;
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     }
-    .metric-value {
-        font-size: 28px;
-        font-weight: 700;
-        color: #00D4FF;
-    }
-    .metric-label {
+    .metric-title {
         font-size: 13px;
-        color: #A0AAB0;
+        font-weight: 600;
+        color: #94A3B8;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
+    }
+    .metric-number {
+        font-size: 26px;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin-top: 4px;
+    }
+    .metric-badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-top: 6px;
+    }
+    .badge-cyan { background: rgba(6, 182, 212, 0.15); color: #22D3EE; }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #34D399; }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+    .badge-red { background: rgba(239, 68, 68, 0.15); color: #F87171; }
+    
+    /* Thanh trạng thái Status Bar */
+    .status-bar {
+        background: #151A23;
+        border-left: 4px solid #06B6D4;
+        border-radius: 6px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# XÁC ĐỊNH ĐƯỜNG DẪN TỚI THƯ MỤC DATA LAKE (SILVER & GOLD)
+# 3. ĐƯỜNG DẪN DỮ LIỆU
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# Silver paths
 SILVER_USERS_PATH = os.path.join(BASE_DIR, "data", "silver", "dim_users")
 SILVER_CARDS_PATH = os.path.join(BASE_DIR, "data", "silver", "dim_cards")
 SILVER_FACT_PATH  = os.path.join(BASE_DIR, "data", "silver", "fact_transactions")
 
-# Gold Summary & DWH paths
 GOLD_FACT_PATH       = os.path.join(BASE_DIR, "data", "gold", "fact_transactions")
 GOLD_DAILY_MERCH_PATH = os.path.join(BASE_DIR, "data", "gold", "agg_daily_merchant_vol")
 GOLD_MONTHLY_PATH    = os.path.join(BASE_DIR, "data", "gold", "agg_monthly_merchant_vol")
@@ -63,63 +95,45 @@ GOLD_DAILY_CARD_PATH = os.path.join(BASE_DIR, "data", "gold", "agg_daily_card_fr
 GOLD_MERCHANT_PATH   = os.path.join(BASE_DIR, "data", "gold", "dim_merchant")
 
 
-# HÀM ĐỌC DỮ LIỆU SILVER (CACHE 2S)
-@st.cache_data(ttl=2)
+# 4. HÀM TẢI DỮ LIỆU TỐI ƯU
+@st.cache_data(ttl=3)
 def load_silver_data():
     users_df, cards_df, fact_df = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     if os.path.exists(SILVER_USERS_PATH):
-        try:
-            users_df = pd.read_parquet(SILVER_USERS_PATH)
-        except Exception:
-            pass
+        try: users_df = pd.read_parquet(SILVER_USERS_PATH)
+        except Exception: pass
     if os.path.exists(SILVER_CARDS_PATH):
-        try:
-            cards_df = pd.read_parquet(SILVER_CARDS_PATH)
-        except Exception:
-            pass
+        try: cards_df = pd.read_parquet(SILVER_CARDS_PATH)
+        except Exception: pass
     if os.path.exists(SILVER_FACT_PATH):
-        try:
-            fact_df = pd.read_parquet(SILVER_FACT_PATH)
-        except Exception:
-            pass
+        try: fact_df = pd.read_parquet(SILVER_FACT_PATH)
+        except Exception: pass
     return users_df, cards_df, fact_df
 
 
-# HÀM ĐỌC DỮ LIỆU GOLD DWH SUMMARY LAYERS (CACHE 5S)
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=10)
 def load_gold_data():
     monthly_df, quarterly_df, daily_card_df, daily_merch_df, merchant_df = (
         pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     )
     if os.path.exists(GOLD_MONTHLY_PATH):
-        try:
-            monthly_df = pd.read_parquet(GOLD_MONTHLY_PATH)
-        except Exception:
-            pass
+        try: monthly_df = pd.read_parquet(GOLD_MONTHLY_PATH)
+        except Exception: pass
     if os.path.exists(GOLD_QUARTERLY_PATH):
-        try:
-            quarterly_df = pd.read_parquet(GOLD_QUARTERLY_PATH)
-        except Exception:
-            pass
+        try: quarterly_df = pd.read_parquet(GOLD_QUARTERLY_PATH)
+        except Exception: pass
     if os.path.exists(GOLD_DAILY_CARD_PATH):
-        try:
-            daily_card_df = pd.read_parquet(GOLD_DAILY_CARD_PATH)
-        except Exception:
-            pass
+        try: daily_card_df = pd.read_parquet(GOLD_DAILY_CARD_PATH)
+        except Exception: pass
     if os.path.exists(GOLD_DAILY_MERCH_PATH):
-        try:
-            daily_merch_df = pd.read_parquet(GOLD_DAILY_MERCH_PATH)
-        except Exception:
-            pass
+        try: daily_merch_df = pd.read_parquet(GOLD_DAILY_MERCH_PATH)
+        except Exception: pass
     if os.path.exists(GOLD_MERCHANT_PATH):
-        try:
-            merchant_df = pd.read_parquet(GOLD_MERCHANT_PATH)
-        except Exception:
-            pass
+        try: merchant_df = pd.read_parquet(GOLD_MERCHANT_PATH)
+        except Exception: pass
     return monthly_df, quarterly_df, daily_card_df, daily_merch_df, merchant_df
 
 
-# HÀM NẠP GOLD DWH VÀO IN-MEMORY SQLITE PHỤC VỤ TRUY VẤN SQL TRỰC TIẾP
 @st.cache_resource
 def get_sqlite_gold_conn():
     conn = sqlite3.connect(":memory:", check_same_thread=False)
@@ -144,53 +158,67 @@ def get_sqlite_gold_conn():
     return conn
 
 
-# TẠO THANH ĐIỀU HƯỚNG CÀI ĐẶT (SIDEBAR)
-st.sidebar.title("⚙️ Cài đặt Dashboard")
-auto_refresh = st.sidebar.checkbox("Tự động làm mới (Streaming 24/7)", value=False)
-if auto_refresh:
-    refresh_interval = st.sidebar.slider("Tần suất làm mới (giây)", 2, 10, 5)
-    st.sidebar.caption("⚠️ Đang bật tự động cập nhật luồng. Tắt đi khi muốn xem bảng tĩnh hoặc viết SQL.")
+# 5. SIDEBAR ĐIỀU HƯỚNG BỀN VỮNG (KHÔNG DÙNG ST.TABS ĐỂ TRÁNH RESET TRANG)
+st.sidebar.markdown("## 💳 Credit Platform")
+selected_page = st.sidebar.radio(
+    "CHỨC NĂNG HỆ THỐNG",
+    [
+        "⚡ Giám Sát Streaming Real-time",
+        "🏛️ Báo Cáo Tổng Hợp DWH",
+        "🔍 Truy Vấn SQL Trực Tiếp",
+        "📁 Duyệt Bảng Dữ Liệu Chi Tiết"
+    ],
+    index=0,
+    key="main_navigation"
+)
 
-if st.sidebar.button("🔄 Làm mới dữ liệu thủ công"):
+st.sidebar.markdown("---")
+
+# Quản lý luồng làm mới chỉ áp dụng cho trang Streaming
+if selected_page == "⚡ Giám Sát Streaming Real-time":
+    auto_refresh = st.sidebar.checkbox("Tự động cập nhật giao dịch (3s)", value=False)
+    if auto_refresh:
+        st.sidebar.info("Đang bật chế độ Live Feed.")
+else:
+    auto_refresh = False
+
+if st.sidebar.button("🔄 Làm mới dữ liệu", use_container_width=True):
     st.cache_data.clear()
     st.cache_resource.clear()
     st.rerun()
 
-st.sidebar.markdown("### 🖥️ Công cụ quản lý Cluster")
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Hạ tầng phân tán:**")
 st.sidebar.markdown("- ⚡ [Spark Master UI](http://localhost:8080)")
 st.sidebar.markdown("- 👷 [Spark Worker UI](http://localhost:8081)")
 
-# TIÊU ĐỀ
-st.title("💳 Credit Management & DWH Platform")
 
-# TẢI DỮ LIỆU
-users_df, cards_df, fact_df = load_silver_data()
-monthly_df, quarterly_df, daily_card_df, daily_merch_df, merchant_df = load_gold_data()
-
-# PHÂN TÁCH GIAO DIỆN THEO 3 TẦNG: SILVER STREAMING, GOLD DWH ANALYTICS, SQL STUDIO
-tab_stream, tab_dwh, tab_sql = st.tabs([
-    "⚡ Real-time Streaming Lakehouse (Silver Zone)",
-    "🏛️ Data Warehouse OLAP Analytics (Gold Summary Layer)",
-    "🔍 Interactive SQL Studio (Kimball Star Schema)"
-])
-
-with tab_stream:
-    # Trạng thái luồng Spark
+# ════════════════════════════════════════════════════════════════════════════
+# TRANG 1: GIÁM SÁT STREAMING REAL-TIME
+# ════════════════════════════════════════════════════════════════════════════
+if selected_page == "⚡ Giám Sát Streaming Real-time":
+    st.title("⚡ Giám Sát Giao Dịch Thời Gian Thực (Streaming POS)")
+    
+    users_df, cards_df, fact_df = load_silver_data()
+    
+    # Tính toán trạng thái
     latest_tx_time = "Chưa có dữ liệu"
-    spark_status = "🔴 INACTIVE"
+    spark_status = "INACTIVE"
+    badge_status = "badge-red"
     if not fact_df.empty and "transaction_timestamp" in fact_df.columns:
         try:
             max_ts = pd.to_datetime(fact_df["transaction_timestamp"]).max()
             latest_tx_time = max_ts.strftime('%H:%M:%S (%Y-%m-%d)')
-            spark_status = "🟢 ACTIVE (Chạy 24/7)"
+            spark_status = "ACTIVE (24/7)"
+            badge_status = "badge-green"
         except Exception:
             pass
 
     st.markdown(f"""
-    <div style="background: rgba(0, 212, 255, 0.08); border-left: 4px solid #00D4FF; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
-        <span style="font-weight: bold; color: #00D4FF;">⚡ TRẠNG THÁI LUỒNG SPARK STREAMING:</span> {spark_status} | 
-        <span style="font-weight: bold; color: #FFB703;">⏱️ GIAO DỊCH MỚI NHẤT:</span> {latest_tx_time} | 
-        <span style="font-weight: bold; color: #00CC96;">🔄 CẬP NHẬT TRÌNH DUYỆT:</span> {datetime.now().strftime('%H:%M:%S')}
+    <div class="status-bar">
+        <div><b>LUỒNG SPARK STREAMING:</b> <span class="metric-badge {badge_status}">{spark_status}</span></div>
+        <div><b>GIAO DỊCH MỚI NHẤT:</b> <span style="color: #FBBF24; font-weight: 600;">{latest_tx_time}</span></div>
+        <div><b>ĐỒNG HỒ TRÌNH DUYỆT:</b> <span style="color: #94A3B8;">{datetime.now().strftime('%H:%M:%S')}</span></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -203,25 +231,22 @@ with tab_stream:
     fraud_rate = (fraud_count / total_tx * 100) if total_tx > 0 else 0.0
 
     with col1:
-        st.markdown(f"""<div class="metric-card"><div class="metric-label">Khách hàng</div><div class="metric-value">{total_users:,}</div><div style="color: #00CC96; font-size: 12px;">DIM_USERS</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-title">Khách hàng</div><div class="metric-number">{total_users:,}</div><span class="metric-badge badge-green">Tầng Silver</span></div>""", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"""<div class="metric-card"><div class="metric-label">Thẻ tín dụng</div><div class="metric-value">{total_cards:,}</div><div style="color: #00CC96; font-size: 12px;">DIM_CARDS</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-title">Thẻ tín dụng</div><div class="metric-number">{total_cards:,}</div><span class="metric-badge badge-green">Tầng Silver</span></div>""", unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""<div class="metric-card"><div class="metric-label">Tổng giao dịch</div><div class="metric-value">{total_tx:,}</div><div style="color: #00D4FF; font-size: 12px;">FACT_TRANSACTIONS</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-title">Tổng giao dịch</div><div class="metric-number">{total_tx:,}</div><span class="metric-badge badge-cyan">Lưu Parquet</span></div>""", unsafe_allow_html=True)
     with col4:
-        st.markdown(f"""<div class="metric-card"><div class="metric-label">Tổng dòng tiền ($)</div><div class="metric-value">${total_amount:,.2f}</div><div style="color: #FFB703; font-size: 12px;">USD STREAMED</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-title">Tổng dòng tiền</div><div class="metric-number">${total_amount:,.2f}</div><span class="metric-badge badge-amber">USD Streamed</span></div>""", unsafe_allow_html=True)
     with col5:
-        st.markdown(f"""<div class="metric-card"><div class="metric-label">Gian lận</div><div class="metric-value" style="color: #FF4B4B;">{fraud_count:,} ({fraud_rate:.1f}%)</div><div style="color: #FF4B4B; font-size: 12px;">CẢNH BÁO</div></div>""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card"><div class="metric-title">Giao dịch gian lận</div><div class="metric-number" style="color: #F87171;">{fraud_count:,} ({fraud_rate:.1f}%)</div><span class="metric-badge badge-red">Cảnh báo</span></div>""", unsafe_allow_html=True)
 
     if fact_df.empty:
-        st.warning("⚡ Data Lake Tầng Silver đang chờ giao dịch streaming mới từ Kafka...")
-        st.info("Hãy đảm bảo container `kafka-producer` và `spark-streaming-consumer` đang chạy trong Docker.")
+        st.warning("Data Lake Tầng Silver đang chờ giao dịch streaming mới từ Kafka...")
     else:
         chart_col1, chart_col2 = st.columns(2)
         with chart_col1:
-            st.subheader("📈 Tốc độ nạp giao dịch Real-Time")
+            st.subheader("Tốc độ nạp giao dịch theo phút")
             if "transaction_timestamp" in fact_df.columns:
                 fact_df["ts_minute"] = pd.to_datetime(fact_df["transaction_timestamp"]).dt.strftime('%H:%M')
                 timeline_df = fact_df.groupby("ts_minute").size().reset_index(name="transaction_count")
@@ -229,99 +254,89 @@ with tab_stream:
                     timeline_df.tail(20),
                     x="ts_minute", y="transaction_count", markers=True,
                     labels={"ts_minute": "Thời gian", "transaction_count": "Số giao dịch"},
-                    color_discrete_sequence=["#00D4FF"]
+                    color_discrete_sequence=["#06B6D4"]
                 )
-                fig_line.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320)
+                fig_line.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=300, margin=dict(l=20, r=20, t=20, b=20))
                 st.plotly_chart(fig_line, use_container_width=True)
 
         with chart_col2:
-            st.subheader("💳 Cơ cấu hình thức quẹt thẻ (Chip vs Swipe)")
+            st.subheader("Cơ cấu hình thức quẹt thẻ")
             if "use_chip" in fact_df.columns:
                 chip_counts = fact_df["use_chip"].value_counts().reset_index()
                 chip_counts.columns = ["Hình thức", "Số lượng"]
                 fig_donut = px.pie(
-                    chip_counts, values="Số lượng", names="Hình thức", hole=0.5,
-                    color_discrete_sequence=px.colors.sequential.Darkmint
+                    chip_counts, values="Số lượng", names="Hình thức", hole=0.55,
+                    color_discrete_sequence=px.colors.sequential.Teal
                 )
-                fig_donut.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320)
+                fig_donut.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=300, margin=dict(l=20, r=20, t=20, b=20))
                 st.plotly_chart(fig_donut, use_container_width=True)
 
-        st.subheader("📋 Bảng giao dịch mới nhất (Live Feed)")
+        st.subheader("Giao dịch mới nhất (Live Feed)")
         display_cols = ["transaction_timestamp", "user_id", "card_index", "amount", "merchant_city", "merchant_state", "use_chip", "is_fraud"]
         available_cols = [c for c in display_cols if c in fact_df.columns]
         recent_tx = fact_df.sort_values(by="transaction_timestamp", ascending=False).head(15)[available_cols]
 
         def highlight_fraud(val):
             if val is True or str(val).lower() in ["true", "yes", "1"]:
-                return 'background-color: rgba(255, 75, 75, 0.3); color: #FF4B4B; font-weight: bold;'
-            return 'color: #00CC96;'
+                return 'background-color: rgba(239, 68, 68, 0.25); color: #F87171; font-weight: bold;'
+            return 'color: #34D399;'
 
-        if "is_fraud" in recent_tx.columns:
-            try:
-                styled_df = recent_tx.style.applymap(highlight_fraud, subset=["is_fraud"]).format({"amount": "${:,.2f}"})
-            except AttributeError:
-                styled_df = recent_tx.style.map(highlight_fraud, subset=["is_fraud"]).format({"amount": "${:,.2f}"})
-            st.dataframe(styled_df, use_container_width=True, height=350)
-        else:
-            st.dataframe(recent_tx, use_container_width=True, height=350)
+        try:
+            styled_df = recent_tx.style.map(highlight_fraud, subset=["is_fraud"]).format({"amount": "${:,.2f}"})
+        except Exception:
+            styled_df = recent_tx
+        st.dataframe(styled_df, use_container_width=True, height=350)
 
-with tab_dwh:
-    st.markdown("""
-    <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10B981; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
-        <span style="font-weight: bold; color: #10B981;">🏛️ DATA WAREHOUSE GOLD LAYER:</span>
-        Đọc trực tiếp từ các bảng tổng hợp <b>Pre-Aggregated Summary Layers</b> (Chuỗi Roll-up Inmon Chapter 3: Ngày → Tháng → Quý).
-        Truy vấn siêu tốc dưới 0.1s nhờ loại bỏ full scan bảng chi tiết!
-    </div>
-    """, unsafe_allow_html=True)
+    # Tự động refresh an toàn (chỉ ở trang Streaming)
+    if auto_refresh:
+        time.sleep(3)
+        st.rerun()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# TRANG 2: BÁO CÁO TỔNG HỢP DWH (GOLD ANALYTICS)
+# ════════════════════════════════════════════════════════════════════════════
+elif selected_page == "🏛️ Báo Cáo Tổng Hợp DWH":
+    st.title("🏛️ Báo Cáo Tổng Hợp Doanh Số & Rủi Ro (Tầng Gold)")
+    
+    monthly_df, quarterly_df, daily_card_df, daily_merch_df, merchant_df = load_gold_data()
 
     if monthly_df.empty:
-        st.warning("⚠️ Chưa phát hiện bảng Gold Summary. Vui lòng chạy `run_dwh_pipeline.ps1` để xây dựng Gold Layer.")
+        st.warning("Chưa có dữ liệu tầng Gold. Vui lòng chạy lệnh: .\\run_dwh_pipeline.ps1")
     else:
-        with st.expander("🏛️ Xem Tóm Tắt Kiến Trúc Tầng Gold (Kimball Star Schema & Inmon Roll-up)", expanded=False):
-            st.markdown("""
-            * **Mô hình DWH:** **Kimball Star Schema** — Bảng sự kiện Atomic (`fact_transactions`: 19,963 giao dịch chi tiết) liên kết 4 bảng chiều qua Surrogate Keys.
-            * **Chiến lược SCD:** `dim_date` (SCD0 - Bất biến), `dim_merchant` (SCD1 - Ghi đè), `dim_cards` & `dim_users` (SCD2 - Lưu vết lịch sử `effective_date`, `expiration_date`, `is_current`).
-            * **Tháp phân tầng Inmon:** Chuỗi Roll-up bảo toàn độ đo cộng dồn (Additive): **Ngày** (`agg_daily_merchant_vol`) ➔ **Tháng** (`agg_monthly_merchant_vol`) ➔ **Quý** (`agg_quarterly_merchant_vol`).
-            * 📄 **Sơ đồ chi tiết:** Xem tại tệp [`docs/gold_dwh_architecture_and_diagrams.md`](file:///e:/credit_management/docs/gold_dwh_architecture_and_diagrams.md).
-            """)
-
-        # DWH KPIs
         dwh_vol = monthly_df["total_volume"].sum() if "total_volume" in monthly_df.columns else 0.0
         dwh_tx  = monthly_df["total_txn"].sum() if "total_txn" in monthly_df.columns else 0
         dwh_fraud = monthly_df["fraud_count"].sum() if "fraud_count" in monthly_df.columns else 0
         dwh_merchants = monthly_df["merchant_sk"].nunique() if "merchant_sk" in monthly_df.columns else 0
 
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        with kpi1:
-            st.markdown(f"""<div class="metric-card"><div class="metric-label">DWH Doanh Số Gold ($)</div><div class="metric-value">${dwh_vol:,.2f}</div><div style="color: #10B981; font-size: 12px;">RECONCILED 100%</div></div>""", unsafe_allow_html=True)
-        with kpi2:
-            st.markdown(f"""<div class="metric-card"><div class="metric-label">Tổng Giao Dịch Gold</div><div class="metric-value">{dwh_tx:,}</div><div style="color: #00D4FF; font-size: 12px;">INMON ROLLUP</div></div>""", unsafe_allow_html=True)
-        with kpi3:
-            st.markdown(f"""<div class="metric-card"><div class="metric-label">Số Vụ Gian Lận</div><div class="metric-value" style="color: #FF4B4B;">{dwh_fraud:,}</div><div style="color: #FF4B4B; font-size: 12px;">FRAUD CASES</div></div>""", unsafe_allow_html=True)
-        with kpi4:
-            st.markdown(f"""<div class="metric-card"><div class="metric-label">Đối Tác Merchant</div><div class="metric-value">{dwh_merchants:,}</div><div style="color: #FFB703; font-size: 12px;">DIM_MERCHANT SK</div></div>""", unsafe_allow_html=True)
+        k1, k2, k3, k4 = st.columns(4)
+        with k1:
+            st.markdown(f"""<div class="metric-card"><div class="metric-title">Doanh số toàn hệ thống</div><div class="metric-number">${dwh_vol:,.2f}</div><span class="metric-badge badge-green">Đối soát 100%</span></div>""", unsafe_allow_html=True)
+        with k2:
+            st.markdown(f"""<div class="metric-card"><div class="metric-title">Tổng số giao dịch</div><div class="metric-number">{dwh_tx:,}</div><span class="metric-badge badge-cyan">Gold Star Schema</span></div>""", unsafe_allow_html=True)
+        with k3:
+            st.markdown(f"""<div class="metric-card"><div class="metric-title">Số vụ gian lận</div><div class="metric-number" style="color: #F87171;">{dwh_fraud:,}</div><span class="metric-badge badge-red">Đã kiểm soát</span></div>""", unsafe_allow_html=True)
+        with k4:
+            st.markdown(f"""<div class="metric-card"><div class="metric-title">Tổng số điểm bán (POS)</div><div class="metric-number">{dwh_merchants:,}</div><span class="metric-badge badge-amber">Thương nhân</span></div>""", unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        dwh_c1, dwh_c2 = st.columns(2)
-
-        with dwh_c1:
-            st.subheader("📅 Doanh Số Theo Tháng (agg_monthly_merchant_vol)")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("Doanh số theo tháng")
             if "year" in monthly_df.columns and "month_number" in monthly_df.columns:
                 m_trend = monthly_df.groupby(["year", "month_number"])["total_volume"].sum().reset_index()
                 m_trend["period"] = m_trend["year"].astype(str) + "-" + m_trend["month_number"].astype(str).str.zfill(2)
-                m_trend = m_trend.sort_values(by=["year", "month_number"]).tail(24)
+                m_trend = m_trend.sort_values(by=["year", "month_number"]).tail(18)
 
                 fig_m = px.bar(
                     m_trend, x="period", y="total_volume",
                     labels={"period": "Tháng", "total_volume": "Doanh số ($)"},
                     color_discrete_sequence=["#10B981"]
                 )
-                fig_m.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320)
+                fig_m.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320, margin=dict(l=20, r=20, t=20, b=20))
                 st.plotly_chart(fig_m, use_container_width=True)
 
-        with dwh_c2:
-            st.subheader("📊 Doanh Số Theo Quý (agg_quarterly_merchant_vol)")
+        with c2:
+            st.subheader("Doanh số theo quý")
             if not quarterly_df.empty and "year" in quarterly_df.columns and "quarter" in quarterly_df.columns:
                 q_trend = quarterly_df.groupby(["year", "quarter"])["total_volume"].sum().reset_index()
                 q_trend["quarter_label"] = q_trend["year"].astype(str) + " Q" + q_trend["quarter"].astype(str)
@@ -330,52 +345,28 @@ with tab_dwh:
                 fig_q = px.line(
                     q_trend, x="quarter_label", y="total_volume", markers=True,
                     labels={"quarter_label": "Quý", "total_volume": "Doanh số ($)"},
-                    color_discrete_sequence=["#FFB703"]
+                    color_discrete_sequence=["#F59E0B"]
                 )
-                fig_q.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320)
+                fig_q.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", height=320, margin=dict(l=20, r=20, t=20, b=20))
                 st.plotly_chart(fig_q, use_container_width=True)
 
-        st.subheader("🛡️ Giám Sát Rủi Ro Thẻ Hàng Ngày (agg_daily_card_fraud)")
+        st.subheader("Top thẻ có dấu hiệu gian lận cao nhất")
         if not daily_card_df.empty:
             fraud_cards = daily_card_df[daily_card_df["fraud_count"] > 0].sort_values(by="fraud_count", ascending=False).head(10)
             if not fraud_cards.empty:
                 st.dataframe(fraud_cards[["date_sk", "card_sk", "total_txn", "total_amount", "fraud_count", "fraud_rate_pct"]], use_container_width=True)
             else:
-                st.info("Không có thẻ nào bị gian lận trong tập mẫu hiện tại.")
+                st.info("Không phát hiện thẻ có rủi ro gian lận trong tập mẫu.")
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.subheader("🔍 Trình Duyệt Dữ Liệu Tầng Gold (Gold Data Inspector)")
-        st.caption("Xem trực tiếp các bản ghi thực tế được lưu trữ trong tầng Gold Parquet:")
-        gold_options = {
-            "fact_transactions (Bảng sự kiện giao dịch Atomic)": GOLD_FACT_PATH,
-            "dim_cards (Thẻ tín dụng SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_cards"),
-            "dim_users (Hồ sơ khách hàng SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_users"),
-            "dim_merchant (Thương nhân SCD Type 1)": GOLD_MERCHANT_PATH,
-            "dim_date (Lịch thời gian 1995-2035)": os.path.join(BASE_DIR, "data", "gold", "dim_date"),
-            "agg_monthly_merchant_vol (Tổng hợp Tháng Inmon)": GOLD_MONTHLY_PATH,
-            "agg_quarterly_merchant_vol (Tổng hợp Quý Inmon)": GOLD_QUARTERLY_PATH
-        }
-        chosen_tbl = st.selectbox("Chọn bảng Gold để xem bản ghi:", list(gold_options.keys()))
-        target_path = gold_options[chosen_tbl]
-        if os.path.exists(target_path):
-            try:
-                tbl_df = pd.read_parquet(target_path)
-                st.write(f"Tổng số dòng trong bảng: **{len(tbl_df):,} dòng** | Hiển thị 15 bản ghi mẫu:")
-                st.dataframe(tbl_df.head(15), use_container_width=True)
-            except Exception as e:
-                st.warning(f"Không thể đọc bảng: {e}")
 
-with tab_sql:
-    st.markdown("""
-    <div style="background: rgba(255, 183, 3, 0.08); border-left: 4px solid #FFB703; padding: 12px 16px; border-radius: 6px; margin-bottom: 20px;">
-        <span style="font-weight: bold; color: #FFB703;">🔍 TRUNG TÂM TRUY VẤN DWH SQL (KIMBALL STAR SCHEMA & INMON ROLLUP):</span>
-        Thực thi các câu lệnh truy vấn chuẩn ANSI SQL trực tiếp trên Kho Dữ Liệu Gold.
-        Hỗ trợ toàn diện các bài toán OLAP: <b>Roll-up, Drill-down, Slice & Dice</b> và kiểm chứng <b>Point-in-Time Join</b>.
-    </div>
-    """, unsafe_allow_html=True)
-
+# ════════════════════════════════════════════════════════════════════════════
+# TRANG 3: TRUY VẤN SQL TRỰC TIẾP (SQL STUDIO)
+# ════════════════════════════════════════════════════════════════════════════
+elif selected_page == "🔍 Truy Vấn SQL Trực Tiếp":
+    st.title("🔍 Trung Tâm Truy Vấn SQL (Star Schema)")
+    
     sql_presets = {
-        "1. Inmon Roll-up: Cuộn Doanh số & Tỷ lệ Gian lận từ Tháng lên Quý": """SELECT 
+        "1. Doanh số & Tỷ lệ gian lận theo Quý": """SELECT 
     year,
     quarter,
     COUNT(DISTINCT merchant_sk) AS active_merchants,
@@ -388,7 +379,7 @@ FROM agg_monthly_merchant_vol
 GROUP BY year, quarter
 ORDER BY year DESC, quarter DESC;""",
 
-        "2. Drill-down: Phân tích Rủi ro Gian lận theo Hình thức Quẹt (Chip vs Swipe)": """SELECT 
+        "2. Phân tích rủi ro theo hình thức quẹt thẻ": """SELECT 
     f.use_chip,
     COUNT(*) AS total_transactions,
     ROUND(SUM(f.amount), 2) AS total_volume,
@@ -399,7 +390,7 @@ FROM fact_transactions f
 GROUP BY f.use_chip
 ORDER BY fraud_rate_pct DESC;""",
 
-        "3. Bằng chứng SCD2 Point-in-Time Join: Thẻ 0_0 chia tách giao dịch qua 2 card_sk": """SELECT 
+        "3. Kiểm chứng lịch sử thẻ (SCD Type 2 Point-in-Time)": """SELECT 
     f.card_sk,
     c.card_index,
     c.credit_limit,
@@ -417,7 +408,7 @@ WHERE c.user_id = 0 AND c.card_index = 0
 GROUP BY f.card_sk, c.card_index, c.credit_limit, c.card_on_dark_web, c.effective_date, c.expiration_date, c.is_current
 ORDER BY f.card_sk;""",
 
-        "4. Top 10 Merchant có Doanh số Lớn Nhất & Tỷ lệ Gian lận (Star Schema Join)": """SELECT 
+        "4. Top 10 đối tác điểm bán có doanh thu cao nhất": """SELECT 
     m.merchant_name,
     m.merchant_city,
     m.merchant_state,
@@ -431,12 +422,12 @@ GROUP BY m.merchant_name, m.merchant_city, m.merchant_state
 ORDER BY total_volume DESC
 LIMIT 10;""",
 
-        "5. Slice & Dice: Doanh số & Rủi ro theo Nhóm Tuổi Khách hàng": """SELECT 
+        "5. Phân nhóm chi tiêu theo độ tuổi khách hàng": """SELECT 
     d.year,
     CASE 
-        WHEN u.current_age < 30 THEN '1. Duoi 30'
-        WHEN u.current_age BETWEEN 30 AND 50 THEN '2. Tu 30-50'
-        ELSE '3. Tren 50'
+        WHEN u.current_age < 30 THEN 'Dưới 30 tuổi'
+        WHEN u.current_age BETWEEN 30 AND 50 THEN '30 - 50 tuổi'
+        ELSE 'Trên 50 tuổi'
     END AS age_group,
     COUNT(*) AS total_txns,
     ROUND(SUM(f.amount), 2) AS total_volume,
@@ -447,41 +438,51 @@ JOIN dim_date d ON f.date_sk = d.date_sk
 GROUP BY d.year, age_group
 ORDER BY d.year DESC, age_group;""",
 
-        "Tùy chỉnh: Tự viết câu lệnh SQL của bạn": "SELECT * FROM fact_transactions LIMIT 10;"
+        "Tùy chỉnh: Tự viết câu lệnh SQL": "SELECT * FROM fact_transactions LIMIT 10;"
     }
 
-    selected_preset = st.selectbox("📌 Chọn câu truy vấn mẫu (hoặc tự gõ SQL):", list(sql_presets.keys()))
-    sql_text = st.text_area("⌨️ Trình soạn thảo SQL (ANSI SQL):", value=sql_presets[selected_preset], height=180)
+    selected_preset = st.selectbox("Chọn câu truy vấn nghiệp vụ có sẵn:", list(sql_presets.keys()))
+    sql_text = st.text_area("Câu lệnh SQL (Chuẩn ANSI SQL):", value=sql_presets[selected_preset], height=160)
 
-    col_btn1, col_btn2 = st.columns([1, 4])
-    with col_btn1:
-        run_btn = st.button("▶ Thực thi SQL", type="primary")
+    if st.button("▶ Chạy truy vấn", type="primary"):
+        if sql_text.strip():
+            sql_conn = get_sqlite_gold_conn()
+            t_start = time.time()
+            try:
+                query_res = pd.read_sql(sql_text, sql_conn)
+                t_exec = (time.time() - t_start) * 1000
+                st.success(f"Truy vấn thành công: **{len(query_res):,} dòng** trong **{t_exec:.1f} ms**")
+                st.dataframe(query_res, use_container_width=True)
+            except Exception as e:
+                st.error(f"Lỗi cú pháp SQL: {e}")
 
-    if run_btn and sql_text.strip():
-        sql_conn = get_sqlite_gold_conn()
-        t_start = time.time()
+
+# ════════════════════════════════════════════════════════════════════════════
+# TRANG 4: DUYỆT BẢNG DỮ LIỆU CHI TIẾT (DATA INSPECTOR)
+# ════════════════════════════════════════════════════════════════════════════
+elif selected_page == "📁 Duyệt Bảng Dữ Liệu Chi Tiết":
+    st.title("📁 Duyệt Dữ Liệu Tầng Gold (Data Inspector)")
+    
+    gold_options = {
+        "fact_transactions (Bảng sự kiện giao dịch chi tiết)": GOLD_FACT_PATH,
+        "dim_cards (Thẻ tín dụng - SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_cards"),
+        "dim_users (Khách hàng - SCD Type 2)": os.path.join(BASE_DIR, "data", "gold", "dim_users"),
+        "dim_merchant (Thương nhân POS - SCD Type 1)": GOLD_MERCHANT_PATH,
+        "dim_date (Lịch thời gian 1995-2035)": os.path.join(BASE_DIR, "data", "gold", "dim_date"),
+        "agg_monthly_merchant_vol (Tổng hợp Tháng)": GOLD_MONTHLY_PATH,
+        "agg_quarterly_merchant_vol (Tổng hợp Quý)": GOLD_QUARTERLY_PATH,
+        "agg_daily_card_fraud (Rủi ro thẻ theo ngày)": GOLD_DAILY_CARD_PATH
+    }
+
+    chosen_tbl = st.selectbox("Chọn bảng cần kiểm tra:", list(gold_options.keys()))
+    target_path = gold_options[chosen_tbl]
+
+    if os.path.exists(target_path):
         try:
-            query_res = pd.read_sql(sql_text, sql_conn)
-            t_exec = (time.time() - t_start) * 1000
-            st.success(f"✅ Truy vấn thành công! Trả về **{len(query_res):,} dòng** trong **{t_exec:.1f} ms**.")
-            st.dataframe(query_res, use_container_width=True)
-
-            # Tùy chọn vẽ biểu đồ nhanh nếu kết quả có 2 cột số/chuỗi
-            num_cols = query_res.select_dtypes(include=['number']).columns.tolist()
-            cat_cols = query_res.select_dtypes(include=['object']).columns.tolist()
-            if len(cat_cols) >= 1 and len(num_cols) >= 1 and len(query_res) <= 50:
-                with st.expander("📈 Xem biểu đồ trực quan hóa kết quả truy vấn"):
-                    fig_sql = px.bar(
-                        query_res, x=cat_cols[0], y=num_cols[0],
-                        title=f"{num_cols[0]} theo {cat_cols[0]}",
-                        color_discrete_sequence=["#FFB703"]
-                    )
-                    fig_sql.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_sql, use_container_width=True)
+            tbl_df = pd.read_parquet(target_path)
+            st.write(f"Tổng số bản ghi: **{len(tbl_df):,} dòng** | Hiển thị 20 dòng đầu tiên:")
+            st.dataframe(tbl_df.head(20), use_container_width=True)
         except Exception as e:
-            st.error(f"❌ Lỗi thực thi SQL: {e}")
-
-# TỰ ĐỘNG REFRESH DỮ LIỆU DÙNG STREAMLIT RERUN
-if auto_refresh:
-    time.sleep(refresh_interval)
-    st.rerun()
+            st.error(f"Không thể đọc file Parquet: {e}")
+    else:
+        st.warning(f"Chưa tìm thấy dữ liệu tại: {target_path}")

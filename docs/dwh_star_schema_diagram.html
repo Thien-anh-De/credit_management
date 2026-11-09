@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Kimball Star Schema ERD Diagram - Credit DWH</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #0B0F17;
+      --card-bg: #141C2B;
+      --border: #1F2A3F;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      
+      --fact-color: #EF4444;
+      --date-color: #A855F7;
+      --user-color: #06B6D4;
+      --card-color: #F59E0B;
+      --merch-color: #10B981;
+      --summary-color: #EC4899;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 24px 24px;
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    header {
+      margin-bottom: 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(6, 182, 212, 0.15);
+      color: #06B6D4;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      background: #141C2B;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover, .btn.active {
+      background: #06B6D4;
+      color: #0B0F17;
+      border-color: #06B6D4;
+    }
+
+    /* Canvas / Diagram container */
+    .diagram-container {
+      position: relative;
+      width: 100%;
+      min-height: 950px;
+      margin-top: 10px;
+    }
+
+    /* SVG Relationship Lines overlay */
+    svg#connections {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .rel-line {
+      stroke: #475569;
+      stroke-width: 1.5;
+      fill: none;
+      transition: all 0.3s;
+    }
+
+    .rel-line.active {
+      stroke: #06B6D4;
+      stroke-width: 2.5;
+    }
+
+    /* Table Node Card (Eraser.io / dbdocs style) */
+    .table-node {
+      position: absolute;
+      width: 270px;
+      background: var(--card-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      z-index: 2;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .table-node:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      border-color: #64748B;
+    }
+
+    .table-header {
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0,0,0,0.2);
+    }
+
+    .header-fact    { background: rgba(239, 68, 68, 0.2); color: #F87171; border-top: 3px solid #EF4444; }
+    .header-date    { background: rgba(168, 85, 247, 0.2); color: #C084FC; border-top: 3px solid #A855F7; }
+    .header-user    { background: rgba(6, 182, 212, 0.2); color: #22D3EE; border-top: 3px solid #06B6D4; }
+    .header-card    { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border-top: 3px solid #F59E0B; }
+    .header-merch   { background: rgba(16, 185, 129, 0.2); color: #34D399; border-top: 3px solid #10B981; }
+    .header-summary { background: rgba(236, 72, 153, 0.2); color: #F472B6; border-top: 3px solid #EC4899; }
+
+    /* Columns list */
+    .table-body {
+      padding: 4px 0;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    .col-row {
+      display: grid;
+      grid-template-columns: 55px 1fr 40px;
+      align-items: center;
+      padding: 5px 12px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .col-row:last-child {
+      border-bottom: none;
+    }
+
+    .col-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .col-type {
+      color: var(--text-dim);
+      font-size: 11px;
+    }
+
+    .col-name {
+      color: var(--text);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .col-key {
+      text-align: right;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .pk-badge {
+      color: #FBBF24;
+      background: rgba(245, 158, 11, 0.15);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .fk-badge {
+      color: #38BDF8;
+      background: rgba(56, 189, 248, 0.15);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .pkfk-badge {
+      color: #A855F7;
+      background: rgba(168, 85, 247, 0.15);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>💳 Credit Card DWH — Kimball Star Schema Diagram</h1>
+      <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+        Mô hình hình sao chuẩn Ralph Kimball & Tháp tổng hợp Bill Inmon Chapter 3
+      </p>
+    </div>
+    <div class="controls">
+      <span class="badge-pill">9 BẢNG GOLD DWH</span>
+      <span class="badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border-color: rgba(16, 185, 129, 0.3);">POINT-IN-TIME JOIN READY</span>
+    </div>
+  </header>
+
+  <div class="diagram-container">
+    <svg id="connections"></svg>
+
+    <!-- 1. DIM_DATE (Top Center) -->
+    <div class="table-node" style="top: 20px; left: 450px;" id="node_dim_date">
+      <div class="table-header header-date">
+        <span>dim_date</span>
+        <span style="font-size: 10px; opacity: 0.8;">SCD Type 0</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">date_sk</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">full_date_str</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">year</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">quarter</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">month_number</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">month_name</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">day_of_month</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">day_of_week</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">is_weekend</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">is_holiday_vn</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 2. DIM_USERS (Top Left) -->
+    <div class="table-node" style="top: 20px; left: 60px;" id="node_dim_users">
+      <div class="table-header header-user">
+        <span>dim_users</span>
+        <span style="font-size: 10px; opacity: 0.8;">SCD Type 2</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">user_sk</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">user_id</span><span class="col-key">NK</span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">user_name</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">current_age</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">yearly_income</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">fico_score</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">city</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">state</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">date</span><span class="col-name">effective_date</span><span class="col-key">PIT</span></div>
+        <div class="col-row"><span class="col-type">date</span><span class="col-name">expiration_date</span><span class="col-key">PIT</span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">is_current</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 3. DIM_CARDS (Top Right) -->
+    <div class="table-node" style="top: 20px; left: 830px;" id="node_dim_cards">
+      <div class="table-header header-card">
+        <span>dim_cards</span>
+        <span style="font-size: 10px; opacity: 0.8;">SCD Type 2</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">card_sk</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">card_natural_key</span><span class="col-key">NK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">user_id</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">card_index</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">card_brand</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">card_type</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">credit_limit</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">card_on_dark_web</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">date</span><span class="col-name">effective_date</span><span class="col-key">PIT</span></div>
+        <div class="col-row"><span class="col-type">date</span><span class="col-name">expiration_date</span><span class="col-key">PIT</span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">is_current</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 4. DIM_MERCHANT (Middle Left) -->
+    <div class="table-node" style="top: 400px; left: 60px;" id="node_dim_merchant">
+      <div class="table-header header-merch">
+        <span>dim_merchant</span>
+        <span style="font-size: 10px; opacity: 0.8;">SCD Type 1</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">merchant_sk</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">merchant_name</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">merchant_city</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">merchant_state</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">mcc</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 5. FACT_TRANSACTIONS (Center - Core Fact Table) -->
+    <div class="table-node" style="top: 380px; left: 440px; width: 300px;" id="node_fact_transactions">
+      <div class="table-header header-fact">
+        <span>fact_transactions</span>
+        <span style="font-size: 10px; opacity: 0.8;">Atomic Grain</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">string</span><span class="col-name">transaction_id</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">date_sk</span><span class="col-key fk-badge">FK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">user_sk</span><span class="col-key fk-badge">FK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">card_sk</span><span class="col-key fk-badge">FK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">merchant_sk</span><span class="col-key fk-badge">FK</span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">amount</span><span class="col-key">[$]</span></div>
+        <div class="col-row"><span class="col-type">bool</span><span class="col-name">is_fraud</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">text</span><span class="col-name">use_chip</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">ts</span><span class="col-name">transaction_timestamp</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 6. AGG_DAILY_CARD_FRAUD (Middle Right) -->
+    <div class="table-node" style="top: 390px; left: 830px;" id="node_agg_daily_card_fraud">
+      <div class="table-header header-summary">
+        <span>agg_daily_card_fraud</span>
+        <span style="font-size: 10px; opacity: 0.8;">Risk Branch</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">date_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">card_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">total_txn</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">total_amount</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">fraud_count</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">fraud_rate_pct</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 7. AGG_DAILY_MERCHANT_VOL (Bottom Left) -->
+    <div class="table-node" style="top: 670px; left: 60px;" id="node_agg_daily_merchant_vol">
+      <div class="table-header header-summary">
+        <span>agg_daily_merchant_vol</span>
+        <span style="font-size: 10px; opacity: 0.8;">Day Rollup</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">date_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">merchant_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">total_txn</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">total_volume</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">fraud_count</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 8. AGG_MONTHLY_MERCHANT_VOL (Bottom Center) -->
+    <div class="table-node" style="top: 670px; left: 440px;" id="node_agg_monthly_merchant_vol">
+      <div class="table-header header-summary">
+        <span>agg_monthly_merchant_vol</span>
+        <span style="font-size: 10px; opacity: 0.8;">Month Rollup</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">year</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">month_number</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">merchant_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">total_txn</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">total_volume</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">fraud_count</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">fraud_rate_pct</span><span class="col-key"></span></div>
+      </div>
+    </div>
+
+    <!-- 9. AGG_QUARTERLY_MERCHANT_VOL (Bottom Right) -->
+    <div class="table-node" style="top: 670px; left: 830px;" id="node_agg_quarterly_merchant_vol">
+      <div class="table-header header-summary">
+        <span>agg_quarterly_merchant_vol</span>
+        <span style="font-size: 10px; opacity: 0.8;">Apex Rollup</span>
+      </div>
+      <div class="table-body">
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">year</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">quarter</span><span class="col-key pk-badge">PK</span></div>
+        <div class="col-row"><span class="col-type">bigint</span><span class="col-name">merchant_sk</span><span class="col-key pkfk-badge">PK,FK</span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">total_txn</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">total_volume</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">int</span><span class="col-name">fraud_count</span><span class="col-key"></span></div>
+        <div class="col-row"><span class="col-type">double</span><span class="col-name">fraud_rate_pct</span><span class="col-key"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background: #EF4444;"></div><span>Bảng Fact Atomic</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #A855F7;"></div><span>Chiều Thời Gian (SCD0)</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #06B6D4;"></div><span>Chiều Khách Hàng (SCD2 PIT)</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #F59E0B;"></div><span>Chiều Thẻ Tín Dụng (SCD2 PIT)</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #10B981;"></div><span>Chiều Điểm Bán POS (SCD1)</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #EC4899;"></div><span>Tháp Tổng Hợp (Inmon Roll-up)</span></div>
+  </div>
+
+  <script>
+    // Draw SVG relationship lines connecting tables
+    function drawConnections() {
+      const svg = document.getElementById('connections');
+      const container = document.querySelector('.diagram-container');
+      const cRect = container.getBoundingClientRect();
+
+      const links = [
+        { from: 'node_dim_date', to: 'node_fact_transactions', fromAnchor: 'bottom', toAnchor: 'top' },
+        { from: 'node_dim_users', to: 'node_fact_transactions', fromAnchor: 'right', toAnchor: 'left' },
+        { from: 'node_dim_cards', to: 'node_fact_transactions', fromAnchor: 'left', toAnchor: 'right' },
+        { from: 'node_dim_merchant', to: 'node_fact_transactions', fromAnchor: 'right', toAnchor: 'left' },
+        { from: 'node_fact_transactions', to: 'node_agg_daily_merchant_vol', fromAnchor: 'bottom', toAnchor: 'top' },
+        { from: 'node_agg_daily_merchant_vol', to: 'node_agg_monthly_merchant_vol', fromAnchor: 'right', toAnchor: 'left' },
+        { from: 'node_agg_monthly_merchant_vol', to: 'node_agg_quarterly_merchant_vol', fromAnchor: 'right', toAnchor: 'left' },
+        { from: 'node_dim_cards', to: 'node_agg_daily_card_fraud', fromAnchor: 'bottom', toAnchor: 'top' }
+      ];
+
+      let svgHtml = '';
+
+      links.forEach(link => {
+        const fElem = document.getElementById(link.from);
+        const tElem = document.getElementById(link.to);
+        if (!fElem || !tElem) return;
+
+        const fR = fElem.getBoundingClientRect();
+        const tR = tElem.getBoundingClientRect();
+
+        let x1 = fR.left - cRect.left + fR.width / 2;
+        let y1 = fR.top - cRect.top + fR.height / 2;
+        let x2 = tR.left - cRect.left + tR.width / 2;
+        let y2 = tR.top - cRect.top + tR.height / 2;
+
+        if (link.fromAnchor === 'bottom') y1 = fR.bottom - cRect.top;
+        if (link.fromAnchor === 'top')    y1 = fR.top - cRect.top;
+        if (link.fromAnchor === 'left')   x1 = fR.left - cRect.left;
+        if (link.fromAnchor === 'right')  x1 = fR.right - cRect.left;
+
+        if (link.toAnchor === 'bottom') y2 = tR.bottom - cRect.top;
+        if (link.toAnchor === 'top')    y2 = tR.top - cRect.top;
+        if (link.toAnchor === 'left')   x2 = tR.left - cRect.left;
+        if (link.toAnchor === 'right')  x2 = tR.right - cRect.left;
+
+        const dx = Math.abs(x2 - x1) * 0.5;
+        const dy = Math.abs(y2 - y1) * 0.5;
+
+        let path = '';
+        if (Math.abs(x1 - x2) < 40) {
+          path = `M ${x1} ${y1} L ${x2} ${y2}`;
+        } else {
+          path = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
+        }
+
+        svgHtml += `<path d="${path}" class="rel-line" />`;
+        svgHtml += `<circle cx="${x1}" cy="${y1}" r="3.5" fill="#06B6D4" />`;
+        svgHtml += `<circle cx="${x2}" cy="${y2}" r="3.5" fill="#EF4444" />`;
+      });
+
+      svg.innerHTML = svgHtml;
+    }
+
+    window.addEventListener('load', drawConnections);
+    window.addEventListener('resize', drawConnections);
+  </script>
+</body>
+</html>
+

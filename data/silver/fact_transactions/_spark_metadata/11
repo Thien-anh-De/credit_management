@@ -1,2 +1,0 @@
-v1
-{"path":"file:///opt/spark/data/silver/fact_transactions/part-00000-78266af3-5f90-46e8-8aac-a24dec8c8cbc-c000.snappy.parquet","size":8412,"isDir":false,"modificationTime":1794195645405,"blockReplication":1,"blockSize":33554432,"action":"add"}

@@ -163,6 +163,10 @@ def main():
     print("\n-> Kích hoạt DWH Job 05 để gắn kết giao dịch với đúng phiên bản SCD2 (Point-in-Time Join)...")
     subprocess.run([sys.executable, job05_script], check=True)
 
+    # 5b. Kích hoạt DWH Job 06 để đồng bộ Summary Layers
+    print("\n-> Kích hoạt DWH Job 06 để đồng bộ Summary Layers...")
+    subprocess.run([sys.executable, job06_script], check=True)
+
     # 6. Đọc lại Gold và chứng minh kết quả giao dịch được phân bổ vào 2 card_sk
     print("\n" + "=" * 65)
     print("  🏆 BẰNG CHỨNG THỰC TẾ: POINT-IN-TIME JOIN PHÂN TÁCH GIAO DỊCH VÀO 2 CARD_SK")
