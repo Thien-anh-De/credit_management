@@ -31,7 +31,12 @@ def main():
     spark.sparkContext.setLogLevel("WARN")
 
     print(f"-> Đọc fact_transactions Silver từ: {fact_path}")
-    fact = spark.read.parquet(fact_path)
+    try:
+        fact = spark.read.parquet(fact_path)
+    except Exception as e:
+        glob_path = os.path.join(fact_path, "*.parquet").replace("\\", "/")
+        print(f"-> Fallback đọc glob *.parquet do phát hiện streaming metadata từ container: {glob_path}")
+        fact = spark.read.parquet(glob_path)
 
     # ── Kiểm tra cột merchant tồn tại ──
     available_cols = [c.lower() for c in fact.columns]

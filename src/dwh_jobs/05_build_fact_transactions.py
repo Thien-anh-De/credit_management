@@ -62,7 +62,12 @@ def main():
 
     # ── Đọc Silver fact ──
     print(f"-> Đọc fact_transactions Silver từ: {silver_fact}")
-    fact = spark.read.parquet(silver_fact)
+    try:
+        fact = spark.read.parquet(silver_fact)
+    except Exception as e:
+        glob_path = os.path.join(silver_fact, "*.parquet").replace("\\", "/")
+        print(f"-> Fallback đọc glob *.parquet do phát hiện streaming metadata từ container: {glob_path}")
+        fact = spark.read.parquet(glob_path)
     if args.limit > 0:
         print(f"-> Giới hạn xử lý: {args.limit:,} dòng")
         fact = fact.limit(args.limit)
@@ -123,6 +128,7 @@ def main():
     amount_col      = next((c for c in fact.columns if c.lower() == "amount"), None)
     fraud_col       = next((c for c in fact.columns if "fraud" in c.lower()), None)
     chip_col        = next((c for c in fact.columns if "chip" in c.lower() or "use_chip" in c.lower()), None)
+    ingest_ts_col   = next((c for c in fact.columns if "ingestion" in c.lower()), None)
 
     txn_id_col = next((c for c in fact.columns if "transaction" in c.lower() and "id" in c.lower()), None)
     if not txn_id_col:
@@ -137,7 +143,8 @@ def main():
                 col(merch_city_col).cast("string") if merch_city_col else lit(""),
                 col(merch_state_col).cast("string") if merch_state_col else lit(""),
                 col(mcc_col).cast("string") if mcc_col else lit(""),
-                col(chip_col).cast("string") if chip_col else lit("")
+                col(chip_col).cast("string") if chip_col else lit(""),
+                col(ingest_ts_col).cast("string") if ingest_ts_col else lit("")
             ))
         )
         txn_id_col = "transaction_id"
