@@ -2,8 +2,9 @@
 Batch Job: Process Transactions (Bronze to Silver)
 ===================================================
 Chuyển đổi dữ liệu giao dịch từ Bronze CSV sang Silver Parquet.
-Phục vụ chạy batch pipeline và phát triển offline khi không bật Kafka cluster.
-Logic làm sạch đồng nhất 100% với spark_consumer.py.
+Tích hợp:
+  - Cơ chế Quarantine Zone (cách ly bản ghi lỗi/bất thường)
+  - ETL Audit Logging (ghi nhận số dòng đọc, sạch, cách ly, kiểm tra bảo toàn)
 """
 import os
 import sys
@@ -17,8 +18,13 @@ from pyspark.sql.types import (
     StructType, StructField, StringType, IntegerType, LongType, DoubleType
 )
 
+# Add src to sys.path to import internal tools
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.tools.etl_audit_quarantine import ETLAuditLogger, route_to_quarantine
+
 
 def main():
+    start_time = datetime.now()
     parser = argparse.ArgumentParser(description="Process Bronze Transactions to Silver Parquet")
     parser.add_argument("--source", type=str, default="", help="Path to bronze CSV (optional)")
     parser.add_argument("--limit", type=int, default=0, help="Row limit (0 = all)")
@@ -39,7 +45,7 @@ def main():
         else:
             csv_path = args.source
     else:
-        # Ưu tiên User0 nếu muốn chạy nhanh test, hoặc big CSV nếu muốn đầy đủ
+        # Ưu tiên User0 nếu có, hoặc big CSV
         csv_path = default_user0 if os.path.exists(default_user0) else default_big
 
     output_path = os.path.join(base_dir, "data", "silver", "fact_transactions")
@@ -78,7 +84,7 @@ def main():
     err_c    = col_map.get("errors", "Errors?")
     fraud_c  = col_map.get("is_fraud", "Is Fraud?")
 
-    # Rút trích giờ phút chính xác (phòng trường hợp inferSchema ép Time thành timestamp)
+    # Rút trích giờ phút chính xác
     time_str = when(col(time_c).cast("string").contains("-"), date_format(col(time_c), "HH:mm")).otherwise(col(time_c).cast("string"))
     dt_str = concat_ws(" ",
         concat_ws("-", col(year_c), lpad(col(month_c).cast("string"), 2, "0"), lpad(col(day_c).cast("string"), 2, "0")),
@@ -106,13 +112,55 @@ def main():
         "use_chip", "merchant_name", "merchant_city", "merchant_state",
         "zip", "mcc", "errors", "is_fraud", "current_timestamp", "ingestion_timestamp"
     ]
-    df_final = df_clean.select(*final_cols)
+    df_prepared = df_clean.select(*final_cols)
 
-    row_count = df_final.count()
-    print(f"-> Tổng số dòng giao dịch chuyển đổi: {row_count:,}")
+    # ── QUARANTINE ROUTING (CÁCH LY DỮ LIỆU LỖI) ──
+    # Ràng buộc hợp lệ: amount không NULL, user_id và card_index không NULL, timestamp hợp lệ
+    valid_cond = (
+        col("amount").isNotNull() &
+        col("user_id").isNotNull() &
+        col("card_index").isNotNull() &
+        col("transaction_timestamp").isNotNull()
+    )
+    reason_expr = (
+        when(col("amount").isNull(), "NULL_OR_UNPARSEABLE_AMOUNT")
+        .when(col("transaction_timestamp").isNull(), "CORRUPTED_OR_NULL_TIMESTAMP")
+        .when(col("user_id").isNull(), "MISSING_USER_ID")
+        .when(col("card_index").isNull(), "MISSING_CARD_INDEX")
+        .otherwise("UNSPECIFIED_TRANSACTION_VALIDATION_ERROR")
+    )
+
+    df_final, df_quarantine, rows_read, rows_clean, rows_quarantined = route_to_quarantine(
+        spark=spark,
+        df_raw=df_prepared,
+        valid_condition=valid_cond,
+        rejection_reason_col=reason_expr,
+        dataset_name="fact_transactions",
+        output_silver_dir=output_path
+    )
+
+    # GHI FILE PARQUET
+    print(f"-> Tổng số dòng giao dịch sạch chuyển đổi: {rows_clean:,}")
     print(f"-> Ghi Parquet vào: {output_path}")
 
     df_final.write.mode("overwrite").parquet(output_path)
+
+    # ── ETL AUDIT LOGGING (GHI NHẬT KÝ KIỂM TOÁN VÀ ĐỐI SOÁT) ──
+    end_time = datetime.now()
+    ETLAuditLogger.log_job(
+        spark=spark,
+        job_name="process_transactions",
+        pipeline_stage="Bronze_to_Silver",
+        source_path=csv_path,
+        target_path=output_path,
+        rows_read=rows_read,
+        rows_clean=rows_clean,
+        rows_quarantined=rows_quarantined,
+        start_time=start_time,
+        end_time=end_time,
+        status="SUCCESS"
+    )
+
     print("✅ [BATCH JOB] Chuyển đổi Bronze fact sang Silver Parquet THÀNH CÔNG")
     spark.stop()
 

@@ -1,11 +1,18 @@
 import os
 import sys
+from datetime import datetime
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col, regexp_replace, when, upper, trim, to_date, concat, lit
 )
 
+# Add src to sys.path to import internal tools
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.tools.etl_audit_quarantine import ETLAuditLogger, route_to_quarantine
+
+
 def main():
+    start_time = datetime.now()
     print("=== [BATCH JOB] BẮT ĐẦU XỬ LÝ DỮ LIỆU BẢNG DIM_CARDS ===")
     
     # KHỞI TẠO SPARK SESSION
@@ -63,10 +70,33 @@ def main():
         "expires", "cvv", "has_chip", "cards_issued", "credit_limit",
         "acct_open_date", "year_pin_last_changed", "card_on_dark_web"
     ]
-    df_final = df_clean.select(*final_cols)
+    df_prepared = df_clean.select(*final_cols)
+
+    # ── QUARANTINE ROUTING (CÁCH LY DỮ LIỆU LỖI) ──
+    # Ràng buộc hợp lệ: user_id & card_index không NULL, hạn mức tín dụng >= 0 (bao gồm thẻ ghi nợ hạn mức 0)
+    valid_cond = (
+        col("user_id").isNotNull() &
+        col("card_index").isNotNull() &
+        (col("credit_limit") >= 0)
+    )
+    reason_expr = (
+        when(col("user_id").isNull(), "MISSING_USER_ID")
+        .when(col("card_index").isNull(), "MISSING_CARD_INDEX")
+        .when(col("credit_limit").isNull() | (col("credit_limit") < 0), "INVALID_OR_NEGATIVE_CREDIT_LIMIT")
+        .otherwise("UNSPECIFIED_CARD_VALIDATION_ERROR")
+    )
+
+    df_final, df_quarantine, rows_read, rows_clean, rows_quarantined = route_to_quarantine(
+        spark=spark,
+        df_raw=df_prepared,
+        valid_condition=valid_cond,
+        rejection_reason_col=reason_expr,
+        dataset_name="dim_cards",
+        output_silver_dir=output_path
+    )
 
     # GHI DỮ LIỆU ĐÃ LÀM SẠCH VÀO TẦNG SILVER (PARQUET)
-    print(f"-> Tổng số dòng thẻ tín dụng: {df_final.count():,}")
+    print(f"-> Tổng số dòng thẻ tín dụng sạch: {rows_clean:,}")
     print(f"-> Đang ghi file Parquet chuẩn nén Snappy vào: {output_path}")
     
     import shutil
@@ -75,8 +105,25 @@ def main():
 
     df_final.write.mode("overwrite").parquet(output_path)
     
-    print(" [BATCH JOB] DONE")
+    # ── ETL AUDIT LOGGING (GHI NHẬT KÝ KIỂM TOÁN VÀ ĐỐI SOÁT) ──
+    end_time = datetime.now()
+    ETLAuditLogger.log_job(
+        spark=spark,
+        job_name="process_cards",
+        pipeline_stage="Bronze_to_Silver",
+        source_path=input_path,
+        target_path=output_path,
+        rows_read=rows_read,
+        rows_clean=rows_clean,
+        rows_quarantined=rows_quarantined,
+        start_time=start_time,
+        end_time=end_time,
+        status="SUCCESS"
+    )
+
+    print("✅ [BATCH JOB] process_cards DONE")
     spark.stop()
+
 
 if __name__ == "__main__":
     main()

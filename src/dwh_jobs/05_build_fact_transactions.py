@@ -22,6 +22,7 @@ Chạy: spark-submit src/dwh_jobs/05_build_fact_transactions.py
 import os
 import sys
 import argparse
+from datetime import datetime
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -30,12 +31,17 @@ if hasattr(sys.stderr, "reconfigure"):
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    col, date_format, lit, coalesce, md5, concat_ws
+    col, date_format, lit, coalesce, md5, concat_ws, when
 )
 from pyspark.sql.types import IntegerType, LongType
 
+# Add src to sys.path to import internal tools
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.tools.etl_audit_quarantine import ETLAuditLogger, route_to_quarantine
+
 
 def main():
+    start_time = datetime.now()
     parser = argparse.ArgumentParser(description="DWH 05: Build fact_transactions with SCD2 PIT Join")
     parser.add_argument("--limit", type=int, default=0, help="Limit number of rows to process (0 = all)")
     args = parser.parse_args()
@@ -252,15 +258,56 @@ def main():
     print(f"-> Thống kê PIT Join dim_users : Khớp trực tiếp = {user_pit_direct:,} | Dùng Fallback = {user_fb_used:,} ({user_fb_used/row_count*100:.2f}%)")
     print(f"-> Thống kê PIT Join dim_cards : Khớp trực tiếp = {card_pit_direct:,} | Dùng Fallback = {card_fb_used:,} ({card_fb_used/row_count*100:.2f}%)")
 
-    # Orphan check trước khi ghi
+    # Orphan check trước khi ghi & Quarantine routing nếu có khóa ngoại mồ côi
     orphan_u = fact_final.filter(col("user_sk").isNull()).count()
     orphan_c = fact_final.filter(col("card_sk").isNull()).count()
     orphan_m = fact_final.filter(col("merchant_sk").isNull()).count()
+    total_orphans = orphan_u + orphan_c + orphan_m
     print(f"-> Kiểm tra tham chiếu: orphan user_sk={orphan_u:,}, "
           f"card_sk={orphan_c:,}, merchant_sk={orphan_m:,}")
 
-    print(f"-> Ghi Parquet vào: {gold_fact_out}")
-    fact_final.write.mode("overwrite").parquet(gold_fact_out)
+    # Ràng buộc toàn vẹn: Không cho phép orphan FK lọt vào bảng Fact chính
+    valid_fact_cond = col("user_sk").isNotNull() & col("card_sk").isNotNull() & col("merchant_sk").isNotNull()
+    orphan_reason_expr = (
+        when(col("user_sk").isNull(), "ORPHAN_USER_SK")
+        .when(col("card_sk").isNull(), "ORPHAN_CARD_SK")
+        .when(col("merchant_sk").isNull(), "ORPHAN_MERCHANT_SK")
+        .otherwise("VALID_FACT")
+    )
+
+    df_fact_clean, df_fact_quarantine, rows_read_fact, rows_clean_fact, rows_quarantined_fact = route_to_quarantine(
+        spark=spark,
+        df_raw=fact_final,
+        valid_condition=valid_fact_cond,
+        rejection_reason_col=orphan_reason_expr,
+        dataset_name="fact_transactions_gold_orphans",
+        output_silver_dir=gold_fact_out
+    )
+
+    print(f"-> Ghi Parquet vào: {gold_fact_out} ({rows_clean_fact:,} dòng)")
+    df_fact_clean.write.mode("overwrite").parquet(gold_fact_out)
+
+    # ── ETL AUDIT LOGGING (GHI NHẬT KÝ KIỂM TOÁN TẦNG GOLD) ──
+    end_time = datetime.now()
+    ETLAuditLogger.log_job(
+        spark=spark,
+        job_name="05_build_fact_transactions",
+        pipeline_stage="Silver_to_Gold",
+        source_path=silver_fact,
+        target_path=gold_fact_out,
+        rows_read=rows_read_fact,
+        rows_clean=rows_clean_fact,
+        rows_quarantined=rows_quarantined_fact,
+        start_time=start_time,
+        end_time=end_time,
+        status="SUCCESS",
+        extra_metrics={
+            "user_pit_direct": user_pit_direct,
+            "user_fallback_used": user_fb_used,
+            "card_pit_direct": card_pit_direct,
+            "card_fallback_used": card_fb_used
+        }
+    )
 
     print("✅ [DWH JOB 05] DONE — fact_transactions Gold sẵn sàng (SCD2 PIT Join chuẩn mực)")
     spark.stop()

@@ -58,7 +58,7 @@ if (-not (Test-Path "$silverPath\.gitkeep")) {
 
 # 3. Don dep tang Gold
 Write-Host ""
-Write-Host "[3/5] Don dep du lieu tang Gold (data/gold)..." -ForegroundColor Cyan
+Write-Host "[3/6] Don dep du lieu tang Gold (data/gold)..." -ForegroundColor Cyan
 $goldPath = "data\gold"
 if (Test-Path $goldPath) {
     Get-ChildItem -Path $goldPath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
@@ -78,9 +78,31 @@ if (-not (Test-Path "$goldPath\.gitkeep")) {
     New-Item -ItemType File -Path "$goldPath\.gitkeep" -Force | Out-Null
 }
 
-# 4. Don dep cache Python va Spark tam
+# 4. Don dep vung cach ly (data/quarantine)
 Write-Host ""
-Write-Host "[4/5] Don dep cache tam (__pycache__, spark-warehouse)..." -ForegroundColor Cyan
+Write-Host "[4/6] Don dep vung cach ly du lieu loi (data/quarantine)..." -ForegroundColor Cyan
+$quarantinePath = "data\quarantine"
+if (Test-Path $quarantinePath) {
+    Get-ChildItem -Path $quarantinePath | Where-Object { $_.Name -ne ".gitkeep" } | ForEach-Object {
+        try {
+            Remove-Item -Path $_.FullName -Recurse -Force
+            Write-Host "  - Da xoa: $($_.Name)" -ForegroundColor DarkGray
+        } catch {
+            Write-Host "  [!] Khong the xoa $($_.Name): $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    Write-Host "  [OK] Vung cach ly Quarantine da duoc don sach hoan toan." -ForegroundColor Green
+} else {
+    New-Item -ItemType Directory -Path $quarantinePath -Force | Out-Null
+    Write-Host "  [OK] Da khoi tao thu muc data/quarantine trong." -ForegroundColor Green
+}
+if (-not (Test-Path "$quarantinePath\.gitkeep")) {
+    New-Item -ItemType File -Path "$quarantinePath\.gitkeep" -Force | Out-Null
+}
+
+# 5. Don dep cache Python va Spark tam
+Write-Host ""
+Write-Host "[5/6] Don dep cache tam (__pycache__, spark-warehouse)..." -ForegroundColor Cyan
 $tempItems = @(
     "spark-warehouse", "metastore_db", "derby.log"
 )
@@ -96,9 +118,9 @@ Get-ChildItem -Path . -Recurse -Filter "__pycache__" -Directory -ErrorAction Sil
 }
 Write-Host "  [OK] Da don sach toan bo cache tam." -ForegroundColor Green
 
-# 5. Kiem tra va bao cao trang thai thu muc Bronze
+# 6. Kiem tra va bao cao trang thai thu muc Bronze
 Write-Host ""
-Write-Host "[5/5] Kiem tra bao toan du lieu goc tang Bronze (data/bronze)..." -ForegroundColor Cyan
+Write-Host "[6/6] Kiem tra bao toan du lieu goc tang Bronze (data/bronze)..." -ForegroundColor Cyan
 $bronzeFiles = Get-ChildItem -Path "data\bronze" | Where-Object { -not $_.PSIsContainer -and $_.Name -ne ".gitkeep" }
 foreach ($f in $bronzeFiles) {
     $sizeMB = [math]::Round($f.Length / 1MB, 2)
@@ -109,9 +131,10 @@ Write-Host ""
 Write-Host "================================================================================" -ForegroundColor Green
 Write-Host "  [SUCCESS] HOAN TAT DON DEP! HE THONG DA TRO VE TRANG THAI SACH BAN DAU" -ForegroundColor Green
 Write-Host "================================================================================" -ForegroundColor Green
-Write-Host "  - Tang Bronze : Giu nguyen 3 file goc ban dau." -ForegroundColor Yellow
-Write-Host "  - Tang Silver : Trong (0 ban ghi)." -ForegroundColor Yellow
-Write-Host "  - Tang Gold   : Trong (0 ban ghi)." -ForegroundColor Yellow
+Write-Host "  - Tang Bronze     : Giu nguyen cac file goc ban dau." -ForegroundColor Yellow
+Write-Host "  - Tang Silver     : Trong (0 ban ghi)." -ForegroundColor Yellow
+Write-Host "  - Tang Gold       : Trong (0 ban ghi)." -ForegroundColor Yellow
+Write-Host "  - Vung Quarantine : Trong (0 ban ghi)." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Khi muon chay lai he thong tu dau, ban chi can go:" -ForegroundColor Cyan
 Write-Host "    .\run_dwh_pipeline.ps1   (Tu dong nap Silver va Gold)" -ForegroundColor Yellow

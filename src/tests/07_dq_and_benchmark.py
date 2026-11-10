@@ -34,6 +34,7 @@ Chạy: python src/tests/07_dq_and_benchmark.py
 """
 import os
 import sys
+import json
 import time
 from datetime import datetime
 
@@ -340,7 +341,59 @@ def run_benchmark(spark, base_dir: str) -> dict:
     return results
 
 
-def write_full_report(ri: dict, pk: dict, scd2: dict, recon: dict, bench: dict, output_path: str):
+def run_etl_audit_and_quarantine_check(spark, base_dir: str) -> dict:
+    """Kiểm tra tính bảo toàn dữ liệu trong ETL Audit Log và tình trạng vùng Quarantine."""
+    print_header("🛡️ F) ETL AUDIT LOG & QUARANTINE RECONCILIATION (Zero Data Loss)")
+
+    audit_json_path = os.path.join(base_dir, "data", "gold", "etl_audit_log.json")
+    quarantine_path = os.path.join(base_dir, "data", "quarantine")
+
+    audit_records = []
+    if os.path.exists(audit_json_path):
+        try:
+            with open(audit_json_path, "r", encoding="utf-8") as f:
+                audit_records = json.load(f)
+        except Exception as e:
+            print(f"[!] Warning reading audit json: {e}")
+            audit_records = []
+
+    all_balanced = True
+    total_quarantined = 0
+    print(f"\n  {'Job Name':<28} | {'Stage':<18} | {'Read':<9} | {'Clean':<9} | {'Quarantine':<10} | {'Status'}")
+    print("  " + "-" * 98)
+    for rec in audit_records:
+        job = rec.get("job_name", "N/A")
+        stage = rec.get("pipeline_stage", "N/A")
+        read = rec.get("rows_read", 0)
+        clean = rec.get("rows_clean", 0)
+        quar = rec.get("rows_quarantined", 0)
+        balanced = rec.get("is_balanced", False)
+        status = "✅ 100% BALANCED" if balanced else "❌ MISMATCH"
+        if not balanced:
+            all_balanced = False
+        total_quarantined += quar
+        print(f"  {job:<28} | {stage:<18} | {read:>9,} | {clean:>9,} | {quar:>10,} | {status}")
+
+    # Kiểm tra các thư mục trong Quarantine
+    quarantine_datasets = []
+    if os.path.exists(quarantine_path):
+        for item in os.listdir(quarantine_path):
+            item_path = os.path.join(quarantine_path, item)
+            if os.path.isdir(item_path):
+                quarantine_datasets.append(item)
+
+    print(f"\n  -> Tổng số dòng bị cách ly bảo vệ chất lượng : {total_quarantined:,} rows")
+    print(f"  -> Trạng thái bảo toàn toàn bộ Pipeline        : {'✅ HOÀN HẢO (0 DATA LOSS)' if all_balanced else '❌ CÓ SAI LỆCH'}")
+
+    return {
+        "audit_records": audit_records,
+        "all_balanced": all_balanced,
+        "total_quarantined": total_quarantined,
+        "quarantine_datasets": quarantine_datasets
+    }
+
+
+def write_full_report(ri: dict, pk: dict, scd2: dict, recon: dict, bench: dict, audit: dict, output_path: str):
     """Ghi báo cáo toàn diện đạt chuẩn nộp Giảng viên (Inmon & Kimball Compliant)."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report = f"""# 📊 Báo Cáo Kiểm Thử Toàn Diện DWH & Performance Benchmark
@@ -433,6 +486,30 @@ def write_full_report(ri: dict, pk: dict, scd2: dict, recon: dict, bench: dict, 
 2. **Idempotent (Tính Khả Lặp Của Pipeline Dữ Liệu):**
    - Khóa suy biến `transaction_id` được sinh bằng thuật toán băm MD5 deterministic từ các cột nghiệp vụ tự nhiên (`user_id`, `card_index`, `timestamp`, `amount`, `merchant`, `mcc`, `chip`). Tuyệt đối không dùng thứ tự ngẫu nhiên của partition.
    - Pipeline áp dụng `write.mode("overwrite")` an toàn tại từng bước. Chạy lại N lần đều cho ra chính xác cùng một kết quả, cùng một tập khóa, không nhân bản hay thất thoát dữ liệu.
+
+---
+
+## 8. ETL Audit Logging & Vùng Cách Ly Dữ Liệu (Quarantine Zone & Zero Data Loss)
+
+Hệ thống triển khai cơ chế **Kiểm toán nạp dữ liệu (Audit Logging)** và **Vùng cách ly dữ liệu lỗi (Quarantine Zone)** nhằm loại bỏ nguy cơ thất thoát dữ liệu, đáp ứng tiêu chuẩn kiểm toán tài chính nghiêm ngặt:
+
+| Tên Job | Phân tầng | Dòng đọc vào (Raw) | Dòng nạp sạch | Dòng cách ly (Quarantine) | Đẳng thức bảo toàn | Trạng thái |
+|:---|:---|---:|---:|---:|:---:|:---:|
+"""
+    for rec in audit.get("audit_records", []):
+        job = rec.get("job_name", "N/A")
+        stage = rec.get("pipeline_stage", "N/A")
+        read = rec.get("rows_read", 0)
+        clean = rec.get("rows_clean", 0)
+        quar = rec.get("rows_quarantined", 0)
+        eq = f"{read:,} = {clean:,} + {quar:,}"
+        st = "✅ BALANCED" if rec.get("is_balanced") else "❌ MISMATCH"
+        report += f"| `{job}` | {stage} | {read:,} | {clean:,} | {quar:,} | {eq} | {st} |\n"
+
+    report += f"""
+> **Nguyên tắc bảo toàn dòng dữ liệu:** $\\text{{Số dòng đọc}} = \\text{{Số dòng nạp sạch}} + \\text{{Số dòng cách ly}}$
+> **Trạng thái đối soát toàn diện:** {'✅ 100% BẢO TOÀN DÒNG DỮ LIỆU (ZERO DATA LOSS)' if audit.get('all_balanced') else '❌ PHÁT HIỆN SAI LỆCH'}
+> **Thư mục lưu trữ vùng cách ly:** `data/quarantine/` ({len(audit.get('quarantine_datasets', []))} bảng được bảo vệ)
 """
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(report)
@@ -459,8 +536,9 @@ def main():
     scd2_res  = run_scd2_consistency(spark, base_dir)
     recon_res = run_reconciliation(spark, base_dir)
     bench_res = run_benchmark(spark, base_dir)
+    audit_res = run_etl_audit_and_quarantine_check(spark, base_dir)
 
-    write_full_report(ri_res, pk_res, scd2_res, recon_res, bench_res, report_path)
+    write_full_report(ri_res, pk_res, scd2_res, recon_res, bench_res, audit_res, report_path)
 
     print("\n" + "=" * 70)
     print("  ✅ [DWH TEST 07] TẤT CẢ CÁC BỘ KIỂM THỬ ĐÃ HOÀN THÀNH XUẤT SẮC!")

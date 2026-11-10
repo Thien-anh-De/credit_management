@@ -1,10 +1,19 @@
 import os
 import sys
+from datetime import datetime
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, regexp_replace, row_number, lit
+from pyspark.sql.functions import col, regexp_replace, row_number, lit, when
 from pyspark.sql.window import Window
 
-def main():    
+# Add src to sys.path to import internal tools
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from src.tools.etl_audit_quarantine import ETLAuditLogger, route_to_quarantine
+
+
+def main():
+    start_time = datetime.now()
+    print("=== [BATCH JOB] BẮT ĐẦU XỬ LÝ DỮ LIỆU BẢNG DIM_USERS ===")
+
     # KHỞI TẠO SPARK SESSION
     spark = SparkSession.builder \
         .appName("ProcessUsersBatch") \
@@ -72,10 +81,36 @@ def main():
         "latitude", "longitude", "per_capita_income", "yearly_income", "total_debt",
         "fico_score", "num_credit_cards"
     ]
-    df_final = df_clean.select(*final_cols)
+    df_prepared = df_clean.select(*final_cols)
+
+    # ── QUARANTINE ROUTING (CÁCH LY DỮ LIỆU LỖI) ──
+    # Quy tắc nghiệp vụ hợp lệ: Tuổi > 0 và < 120, FICO 300-850, Thu nhập >= 0, Nợ >= 0
+    valid_cond = (
+        (col("current_age") > 0) & (col("current_age") < 120) &
+        (col("fico_score").between(300, 850)) &
+        (col("yearly_income") >= 0) &
+        (col("total_debt") >= 0)
+    )
+    reason_expr = (
+        when(col("fico_score") < 300, "FICO_SCORE_BELOW_MIN_300")
+        .when(col("fico_score") > 850, "FICO_SCORE_ABOVE_MAX_850")
+        .when((col("current_age") <= 0) | (col("current_age") >= 120), "INVALID_AGE_RANGE")
+        .when(col("yearly_income") < 0, "NEGATIVE_YEARLY_INCOME")
+        .when(col("total_debt") < 0, "NEGATIVE_TOTAL_DEBT")
+        .otherwise("UNSPECIFIED_VALIDATION_ERROR")
+    )
+
+    df_final, df_quarantine, rows_read, rows_clean, rows_quarantined = route_to_quarantine(
+        spark=spark,
+        df_raw=df_prepared,
+        valid_condition=valid_cond,
+        rejection_reason_col=reason_expr,
+        dataset_name="dim_users",
+        output_silver_dir=output_path
+    )
 
     # GHI DỮ LIỆU ĐÃ LÀM SẠCH VÀO TẦNG SILVER (PARQUET)
-    print(f"-> Tổng số dòng dữ liệu người dùng: {df_final.count():,}")
+    print(f"-> Tổng số dòng dữ liệu người dùng sạch: {rows_clean:,}")
     print(f"-> Đang ghi file Parquet chuẩn nén Snappy vào: {output_path}")
     
     import shutil
@@ -84,8 +119,25 @@ def main():
 
     df_final.write.mode("overwrite").parquet(output_path)
     
-    print(" [BATCH JOB] DONE")
+    # ── ETL AUDIT LOGGING (GHI NHẬT KÝ KIỂM TOÁN VÀ ĐỐI SOÁT) ──
+    end_time = datetime.now()
+    ETLAuditLogger.log_job(
+        spark=spark,
+        job_name="process_users",
+        pipeline_stage="Bronze_to_Silver",
+        source_path=input_path,
+        target_path=output_path,
+        rows_read=rows_read,
+        rows_clean=rows_clean,
+        rows_quarantined=rows_quarantined,
+        start_time=start_time,
+        end_time=end_time,
+        status="SUCCESS"
+    )
+
+    print("✅ [BATCH JOB] process_users DONE")
     spark.stop()
+
 
 if __name__ == "__main__":
     main()

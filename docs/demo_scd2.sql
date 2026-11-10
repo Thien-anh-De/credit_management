@@ -1,32 +1,9 @@
--- ====================================================================================================
--- 💳 DEMO THỦ CÔNG: SCD TYPE 2 & POINT-IN-TIME JOIN TRONG SQL SERVER (SSMS)
--- Dự án: Credit Management & Fraud Monitoring Data Warehouse
--- Cơ sở dữ liệu: CreditCard_DWH
--- ====================================================================================================
--- 
--- 📌 HƯỚNG DẪN CÁCH CHẠY DEMO TRƯỚC MẶT HỘI ĐỒNG GIẢNG VIÊN:
--- 
--- 1. Mở SQL Server Management Studio (SSMS), kết nối vào SQL Server và mở file này.
--- 2. Đảm bảo góc trên bên trái SSMS đang chọn Database: [CreditCard_DWH].
--- 3. KHÔNG BẤM F5 TOÀN BỘ FILE MỘT LÚC!
---    👉 Thao tác đúng: Bôi đen (Highlight) từng KHỐI một -> Bấm F5 (Execute) -> Giải thích cho Thầy/Cô.
--- 
--- 🎯 KỊCH BẢN NGHIỆP VỤ (NÓI VỚI THẦY/CÔ):
---    "Thưa Thầy/Cô, thẻ tín dụng 0_0 của khách hàng 0 mở năm 2002 với hạn mức ban đầu là $24,295.
---     Đến ngày 2015-06-01, ngân hàng đánh giá uy tín và duyệt nâng hạn mức lên $25,000.
---     Nếu dùng SCD Type 1 (ghi đè), các giao dịch từ 2002-2015 sẽ bị gán nhầm vào hạn mức mới.
---     Nhóm áp dụng SCD Type 2 để bảo toàn lịch sử và dùng Point-in-Time Join để chia tách giao dịch."
--- ====================================================================================================
 
 USE CreditCard_DWH;
 GO
 
 
--- ====================================================================================================
--- 📍 KHỐI 1: XEM TRẠNG THÁI BAN ĐẦU CỦA THẺ 0_0 (TRƯỚC KHI BIẾN ĐỘNG)
--- 👉 Thao tác: Bôi đen 4 dòng dưới đây và bấm F5
--- ====================================================================================================
-SELECT 
+-- XEM TRẠNG THÁI BAN ĐẦU CỦA THẺ 0_0 (TRƯỚC KHI BIẾN ĐỘNG)
     card_sk,
     card_natural_key,
     credit_limit,
@@ -37,17 +14,8 @@ SELECT
 FROM dim_cards
 WHERE card_natural_key = '0_0';
 
--- 💬 Thuyết minh:
--- "Thẻ 0_0 hiện chỉ có duy nhất 1 bản ghi (card_sk = 1), hạn mức $24,295, is_current = 1 (đang hiệu lực)."
 
-
-
--- ====================================================================================================
--- 📍 KHỐI 2: THỰC HIỆN BIẾN ĐỘNG SCD TYPE 2 (ĐÓNG DÒNG CŨ + THÊM DÒNG MỚI)
--- 👉 Kịch bản: Ngày 2015-06-01, nâng hạn mức lên $25,000 (dùng bảng tạm #t để copy nguyên xi 17 cột)
--- 👉 Thao tác: Bôi đen toàn bộ Khối 2 và bấm F5
--- ====================================================================================================
-
+-- THỰC HIỆN BIẾN ĐỘNG SCD TYPE 2 (ĐÓNG DÒNG CŨ + THÊM DÒNG MỚI)
 -- Bước A: Copy toàn bộ thông tin thẻ sang bảng tạm #t
 IF OBJECT_ID('tempdb..#t') IS NOT NULL DROP TABLE #t;
 SELECT * INTO #t FROM dim_cards WHERE card_sk = 1;

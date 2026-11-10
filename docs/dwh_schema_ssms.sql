@@ -1,8 +1,3 @@
--- ====================================================================================================
--- DDL THIẾT KẾ DATA WAREHOUSE CHUẨN KIMBALL STAR SCHEMA TRONG SQL SERVER / SSMS
--- Dự án: Credit Management & Fraud Monitoring Data Warehouse
--- Hệ thống: Star Schema + SCD Type 0/1/2 + Summary Layers (Inmon Chapter 3)
--- ====================================================================================================
 
 -- 1. TẠO CƠ SỞ DỮ LIỆU DATA WAREHOUSE
 IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'CreditCard_DWH')
